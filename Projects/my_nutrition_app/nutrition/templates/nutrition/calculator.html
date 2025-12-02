@@ -1,0 +1,58 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% trans "Calculator — Nutrition Helper" %}</title>
+</head>
+<body>
+<nav>
+    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
+    <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a> |
+    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
+</nav>
+
+<h1>{% trans "Calorie & Macro Calculator" %}</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <label>{% trans "Age" %}: <input type="number" name="age" required></label><br>
+    <label>{% trans "Sex" %}:
+        <select name="sex">
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+        </select>
+    </label><br>
+    <label>{% trans "Weight (kg)" %}: <input type="number" step="0.1" name="weight" required></label><br>
+    <label>{% trans "Height (cm)" %}: <input type="number" step="0.1" name="height" required></label><br>
+    <label>{% trans "Activity level" %}:
+        <select name="activity_level">
+            <option value="1.2">{% trans "Sedentary" %}</option>
+            <option value="1.375">{% trans "Light" %}</option>
+            <option value="1.55">{% trans "Moderate" %}</option>
+            <option value="1.725">{% trans "Active" %}</option>
+            <option value="1.9">{% trans "Very active" %}</option>
+        </select>
+    </label><br>
+    <label>{% trans "Goal" %}:
+        <select name="goal">
+            <option value="lose">{% trans "Lose weight" %}</option>
+            <option value="maintain">{% trans "Maintain weight" %}</option>
+            <option value="gain">{% trans "Gain weight" %}</option>
+        </select>
+    </label><br><br>
+    <button type="submit">{% trans "Calculate" %}</button>
+</form>
+
+{% if result %}
+<hr>
+<h2>{% trans "Results" %}</h2>
+<p>BMR: {{ result.bmr }} kcal</p>
+<p>TDEE: {{ result.tdee }} kcal</p>
+<p>{% trans "Recommended calories" %}: {{ result.recommended_kcal }} kcal</p>
+<p>{% trans "Protein" %}: {{ result.protein_g }} g</p>
+<p>{% trans "Fat" %}: {{ result.fat_g }} g</p>
+<p>{% trans "Carbs" %}: {{ result.carbs_g }} g</p>
+{% endif %}
+
+</body>
+</html>

@@ -1,0 +1,60 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% trans "Progress — Nutrition Helper" %}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<nav>
+    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
+    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a> |
+    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
+</nav>
+
+<h1>{% trans "Progress & Goals" %}</h1>
+
+<!-- переносим JSON-данные в data-атрибуты; используем escapejs для корректного экранирования -->
+<canvas id="calChart" width="800" height="300"
+        data-dates="{{ dates_json|escapejs }}"
+        data-calories="{{ calories_json|escapejs }}"></canvas>
+
+<script>
+(function() {
+    const canvas = document.getElementById('calChart');
+    // Получаем строки из data-атрибутов и парсим в JS-массивы
+    let dates = [];
+    let calories = [];
+    try {
+        dates = JSON.parse(canvas.dataset.dates || '[]');
+    } catch (e) {
+        dates = [];
+        console.error('Failed to parse dates JSON', e);
+    }
+    try {
+        calories = JSON.parse(canvas.dataset.calories || '[]');
+    } catch (e) {
+        calories = [];
+        console.error('Failed to parse calories JSON', e);
+    }
+
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: dates,
+            datasets: [{
+                label: '{% trans "Calories per day" %}',
+                data: calories,
+                backgroundColor: 'rgba(75, 192, 192, 0.6)'
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+})();
+</script>
+
+</body>
+</html>

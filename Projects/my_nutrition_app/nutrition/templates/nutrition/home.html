@@ -1,0 +1,98 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% trans "Add Food — Nutrition Helper" %}</title>
+</head>
+<body>
+
+<!-- добавлена простая навигация -->
+<nav>
+    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
+    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a> |
+    <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a> |
+    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
+    {% if user.is_authenticated %}
+        | <a href="{% url 'logout' %}?next={% url 'nutrition:home' %}">{% trans "Logout" %}</a>
+    {% else %}
+        | <a href="{% url 'login' %}?next={% url 'nutrition:home' %}">{% trans "Login" %}</a>
+    {% endif %}
+</nav>
+
+<!-- простой переключатель языка -->
+<form action="{% url 'set_language' %}" method="post">
+    {% csrf_token %}
+    <label for="language">{% trans "Language" %}:</label>
+    <select name="language" id="language">
+        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>English</option>
+        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>Latviešu</option>
+        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>Русский</option>
+    </select>
+    <input type="submit" value="{% trans "Change" %}">
+    <input type="hidden" name="next" value="{{ request.path }}">
+</form>
+
+<h1>{% trans "Add food" %}</h1>
+
+<form method="post">
+    {% csrf_token %}
+    <label>{% trans "Product" %}:</label>
+    <select name="product">
+        {% for p in products %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+    </select>
+
+    <br><br>
+
+    <label>{% trans "Amount (grams)" %}:</label>
+    <input type="number" name="amount" required>
+
+    <br><br>
+
+    <button type="submit">{% trans "Add" %}</button>
+</form>
+
+<br>
+<a href="{% url 'nutrition:profile' %}">{% trans "Configure profile (weight, height, goal)" %}</a>
+
+<hr>
+<h2>{% trans "Today (total)" %}:</h2>
+{% if totals %}
+    <p>{% trans "Calories" %}: {{ totals.calories }} kcal</p>
+    <p>{% trans "Protein" %}: {{ totals.protein }} g</p>
+    <p>{% trans "Fat" %}: {{ totals.fat }} g</p>
+    <p>{% trans "Carbs" %}: {{ totals.carbs }} g</p>
+{% else %}
+    <p>{% trans "No entries for today." %}</p>
+{% endif %}
+
+{% if recommendation %}
+<hr>
+<h3>{% trans "Calorie recommendations (by profile)" %}:</h3>
+<p>BMR: {{ recommendation.bmr }} kcal</p>
+<p>TDEE: {{ recommendation.tdee }} kcal</p>
+<p>{% trans "Recommended calories adjusted for goal" %}: {{ recommendation.recommended_kcal }} kcal</p>
+<p>{% trans "Approx macro plan (grams)" %}:</p>
+<ul>
+    <li>{% trans "Protein" %}: {{ recommendation.protein_g }} g</li>
+    <li>{% trans "Fat" %}: {{ recommendation.fat_g }} g</li>
+    <li>{% trans "Carbs" %}: {{ recommendation.carbs_g }} g</li>
+</ul>
+{% endif %}
+
+<hr>
+<h2>{% trans "Entries today" %}:</h2>
+<ul>
+    {% for e in entries %}
+        <li>{{ e.product.name }} — {{ e.amount }} g —
+            {{ e.calories|floatformat:2 }} kcal,
+            {{ e.product.protein_per_100g|floatformat:2 }} g/100g
+        </li>
+    {% empty %}
+        <li>{% trans "No entries" %}</li>
+    {% endfor %}
+</ul>
+
+</body>
+</html>

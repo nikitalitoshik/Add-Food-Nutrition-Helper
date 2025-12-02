@@ -1,0 +1,47 @@
+{% load i18n %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% trans "Profile — Nutrition Helper" %}</title>
+</head>
+<body>
+<!-- simple language switcher -->
+<form action="{% url 'set_language' %}" method="post">
+    {% csrf_token %}
+    <label for="language">{% trans "Language" %}:</label>
+    <select name="language" id="language">
+        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>English</option>
+        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>Latviešu</option>
+        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>Русский</option>
+    </select>
+    <input type="submit" value="{% trans "Change" %}">
+    <input type="hidden" name="next" value="{{ request.path }}">
+</form>
+
+<h1>{% trans "User profile" %}</h1>
+
+<p>{% trans "User" %}: {% if user.is_authenticated %}{{ user.username }} — <a href="{% url 'logout' %}?next={% url 'nutrition:home' %}">{% trans "Logout" %}</a>{% endif %}</p>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">{% trans "Save profile" %}</button>
+</form>
+
+{% if recommendation %}
+<hr>
+<h2>{% trans "Calculation results" %}</h2>
+<p>BMR: {{ recommendation.bmr }} kcal</p>
+<p>TDEE: {{ recommendation.tdee }} kcal</p>
+<p>{% trans "Recommended calories" %}: {{ recommendation.recommended_kcal }} kcal</p>
+<p>{% trans "Approx macro distribution" %}:</p>
+<ul>
+    <li>{% trans "Protein" %}: {{ recommendation.protein_g }} g</li>
+    <li>{% trans "Fat" %}: {{ recommendation.fat_g }} g</li>
+    <li>{% trans "Carbs" %}: {{ recommendation.carbs_g }} g</li>
+</ul>
+{% endif %}
+
+<p><a href="{% url 'nutrition:home' %}">{% trans "Back to home" %}</a></p>
+</body>
+</html>
