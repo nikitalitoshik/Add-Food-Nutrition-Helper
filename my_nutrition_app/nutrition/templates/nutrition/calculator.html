@@ -1,0 +1,130 @@
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% trans "Calculator — Nutrition Helper" %}</title>
+    <link rel="stylesheet" href="{% static 'nutrition/style.css' %}">
+</head>
+<body>
+<div id="root">
+
+<nav>
+  <div class="nav-left">
+    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
+    <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a> |
+    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
+  </div>
+  <div class="nav-right">
+    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a>
+    <form action="{% url 'set_language' %}" method="post" class="language-form nav-lang" id="langFormCalc" title="{% trans 'Change language' %}">
+      {% csrf_token %}
+      <select name="language" class="nav-lang-select" onchange="this.form.submit();">
+        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
+        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
+        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
+      </select>
+      <input type="hidden" name="next" value="{{ request.path }}">
+    </form>
+  </div>
+</nav>
+
+<h1>{% trans "Calorie & Macro Calculator" %}</h1>
+
+<div class="card">
+    <p style="color: #666; margin-bottom: 1.5rem;">{% trans "Enter your personal data to get personalized calorie and macro recommendations." %}</p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            <div>
+                <label>{% trans "Age" %}</label>
+                <input type="number" name="age" required>
+            </div>
+            <div>
+                <label>{% trans "Sex" %}</label>
+                <select name="sex" required>
+                    <option value="M">{% trans "Male" %}</option>
+                    <option value="F">{% trans "Female" %}</option>
+                </select>
+            </div>
+            <div>
+                <label>{% trans "Weight (kg)" %}</label>
+                <input type="number" step="0.1" name="weight" required>
+            </div>
+            <div>
+                <label>{% trans "Height (cm)" %}</label>
+                <input type="number" step="0.1" name="height" required>
+            </div>
+            <div>
+                <label>{% trans "Activity level" %}</label>
+                <select name="activity_level" required>
+                    <option value="1.2">{% trans "Sedentary" %}</option>
+                    <option value="1.375">{% trans "Light" %}</option>
+                    <option value="1.55">{% trans "Moderate" %}</option>
+                    <option value="1.725">{% trans "Active" %}</option>
+                    <option value="1.9">{% trans "Very active" %}</option>
+                </select>
+            </div>
+            <div>
+                <label>{% trans "Goal" %}</label>
+                <select name="goal" required>
+                    <option value="lose">{% trans "Lose weight" %}</option>
+                    <option value="maintain">{% trans "Maintain weight" %}</option>
+                    <option value="gain">{% trans "Gain weight" %}</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" style="width: 100%; margin-top: 1.5rem;">{% trans "Calculate" %}</button>
+    </form>
+</div>
+
+{% if result %}
+<hr>
+<div class="card">
+    <h2>{% trans "Results" %}</h2>
+    
+    <div class="summary" style="margin-bottom: 2rem;">
+        <div class="summary-card">
+            <div class="label">BMR</div>
+            <div class="value">{{ result.bmr }}</div>
+            <div class="label">kcal/day</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">TDEE</div>
+            <div class="value">{{ result.tdee }}</div>
+            <div class="label">kcal/day</div>
+        </div>
+        <div class="summary-card" style="background: linear-gradient(135deg, #FF9800, #F44336);">
+            <div class="label">{% trans "Recommended" %}</div>
+            <div class="value">{{ result.recommended_kcal }}</div>
+            <div class="label">kcal/day</div>
+        </div>
+    </div>
+
+    <div style="background: #f9f9f9; padding: 1.5rem; border-radius: 8px;">
+        <h3 style="margin-top: 0; color: var(--primary-color);">{% trans "Approx macro distribution" %}</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #4CAF50;">
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{% trans "Protein" %}</div>
+                <div style="font-size: 1.6rem; font-weight: 700; color: #4CAF50;">{{ result.protein_g }}</div>
+                <div style="font-size: 0.85rem; color: #999;">g/day</div>
+            </div>
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #2196F3;">
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{% trans "Fat" %}</div>
+                <div style="font-size: 1.6rem; font-weight: 700; color: #2196F3;">{{ result.fat_g }}</div>
+                <div style="font-size: 0.85rem; color: #999;">g/day</div>
+            </div>
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #FF9800;">
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{% trans "Carbs" %}</div>
+                <div style="font-size: 1.6rem; font-weight: 700; color: #FF9800;">{{ result.carbs_g }}</div>
+                <div style="font-size: 0.85rem; color: #999;">g/day</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+</div><!-- #root -->
+</body>
+</html>

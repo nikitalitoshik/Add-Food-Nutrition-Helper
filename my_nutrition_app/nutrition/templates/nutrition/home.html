@@ -1,0 +1,492 @@
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% trans "Add Food — Nutrition Helper" %}</title>
+    <link rel="stylesheet" href="{% static 'nutrition/style.css' %}">
+</head>
+<body>
+
+<div id="root">
+
+<!-- updated nav: language selector moved inside nav (right side) -->
+<nav>
+  <div class="nav-left">
+    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a>
+    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a>
+    <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a>
+    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
+  </div>
+
+  <div class="nav-right">
+    {% if user.is_authenticated %}
+      <a href="{% url 'logout' %}?next={% url 'nutrition:home' %}">{% trans "Logout" %}</a>
+    {% else %}
+      <a href="{% url 'login' %}?next={% url 'nutrition:home' %}">{% trans "Login" %}</a>
+      <a href="{% url 'nutrition:signup' %}">{% trans "Sign Up" %}</a>
+    {% endif %}
+
+    <form action="{% url 'set_language' %}" method="post" class="language-form nav-lang" id="langForm" title="{% trans 'Change language' %}" style="margin-left:0.5rem;">
+      {% csrf_token %}
+      <select name="language" id="language" class="nav-lang-select" onchange="this.form.submit();">
+        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
+        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
+        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
+      </select>
+      <input type="hidden" name="next" value="{{ request.path }}">
+    </form>
+  </div>
+</nav>
+
+<h1>{% trans "Add food" %}</h1>
+
+<form method="post" class="card">
+    {% csrf_token %}
+    <label>{% trans "Product" %}:</label>
+    <select name="product">
+        {% for p in products %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+    </select>
+
+    <label>{% trans "Amount (grams)" %}:</label>
+    <input type="number" name="amount" required>
+
+    <button type="submit">{% trans "Add" %}</button>
+</form>
+
+<a href="{% url 'nutrition:profile' %}" class="btn btn-primary" style="margin-bottom: 2rem;">
+  {% trans "Configure profile (weight, height, goal)" %}
+</a>
+
+<hr>
+
+<!-- label indicating today's totals -->
+<div style="max-width:1100px; margin: 0.25rem auto 0;">
+  <span class="today-label">{% trans "Съедено за сегодня" %}</span>
+</div>
+
+<!-- Summary Section -->
+{% if totals %}
+<div class="summary" aria-live="polite">
+  <div class="summary-card">
+    <div class="label">{% trans "Калории" %}</div>
+    <div class="value">{{ totals.calories }}</div>
+    <div class="unit">kcal</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">{% trans "Белки" %}</div>
+    <div class="value">{{ totals.protein }}</div>
+    <div class="unit">g</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">{% trans "Жиры" %}</div>
+    <div class="value">{{ totals.fat }}</div>
+    <div class="unit">g</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">{% trans "Углеводы" %}</div>
+    <div class="value">{{ totals.carbs }}</div>
+    <div class="unit">g</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Recommendation (pretty block) -->
+{% if recommendation %}
+<div class="recommendation-card" role="region" aria-labelledby="rec-title">
+  <div class="rec-header" id="rec-title">
+    {% trans "Рекомендации по калориям (по профилю)" %}
+  </div>
+  <div class="rec-body">
+    <div class="rec-top">
+      <div class="rec-top-card card-primary">
+        <div class="k-label">BMR</div>
+        <div class="k-value">{{ recommendation.bmr }}</div>
+        <div class="k-unit">kcal/day</div>
+      </div>
+      <div class="rec-top-card card-primary">
+        <div class="k-label">TDEE</div>
+        <div class="k-value">{{ recommendation.tdee }}</div>
+        <div class="k-unit">kcal/day</div>
+      </div>
+      <div class="rec-top-card card-accent">
+        <div class="k-label">{% trans "Рекомендуемые калории" %}</div>
+        <div class="k-value">{{ recommendation.recommended_kcal }}</div>
+        <div class="k-unit">kcal/day</div>
+      </div>
+    </div>
+
+    <div style="font-weight:700; margin-bottom:0.5rem;">{% trans "Предполагаемое распределение макро" %}</div>
+    <div class="rec-macros">
+      <div class="macro-item protein">
+        <div class="m-label">{% trans "Белки" %}</div>
+        <div class="m-value">{{ recommendation.protein_g }} g</div>
+      </div>
+      <div class="macro-item fat">
+        <div class="m-label">{% trans "Жиры" %}</div>
+        <div class="m-value">{{ recommendation.fat_g }} g</div>
+      </div>
+      <div class="macro-item carbs">
+        <div class="m-label">{% trans "Углеводы" %}</div>
+        <div class="m-value">{{ recommendation.carbs_g }} g</div>
+      </div>
+    </div>
+
+    <div class="rec-note">💡 <small>{% trans "Рекомендации рассчитаны по введённым данным профиля и носят ориентировочный характер." %}</small></div>
+  </div>
+</div>
+{% endif %}
+
+<hr>
+
+<div class="card">
+    <h2>{% trans "Entries today" %}</h2>
+    {% if entries %}
+        <ul style="list-style:none; padding:0; margin:0;">
+            {% for e in entries %}
+                <li style="padding:0.6rem 0; border-bottom:1px solid var(--border-color);">
+                  <div class="entry-row">
+                    <div style="min-width:160px;">
+                        <strong>{{ e.product.name }}</strong>
+                        <div style="color:#666; font-size:0.95rem;">
+                            <!-- показать исходное и текущее количество -->
+                            <div style="margin-bottom:0.3rem;">
+                              {% if e.initial_amount != e.amount %}
+                                <span style="text-decoration:line-through; opacity:0.6;">{{ e.initial_amount|floatformat:1 }}g</span>
+                                → <strong>{{ e.amount|floatformat:1 }}g</strong>
+                              {% else %}
+                                <strong>{{ e.amount|floatformat:1 }}g</strong>
+                              {% endif %}
+                            </div>
+                            <span style="color:var(--primary-color);">{{ e.calories|floatformat:2 }} kcal</span>
+                            • {{ e.protein|floatformat:2 }} g protein
+                            • {{ e.fat|floatformat:2 }} g fat
+                            • {{ e.carbs|floatformat:2 }} g carbs
+                        </div>
+                    </div>
+
+                    <!-- action stickers -->
+                    <div class="entry-controls">
+                      <div class="entry-actions" data-entry-id="{{ e.id }}">
+                        <button type="button" class="sticker sticker--edit" aria-label="{% trans 'Edit entry' %}" title="{% trans 'Edit' %}" data-action="toggle-edit">
+                          <!-- pencil icon -->
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
+                        </button>
+
+                        <button type="button" class="sticker sticker--delete" aria-label="{% trans 'Delete entry' %}" title="{% trans 'Delete' %}" data-action="delete">
+                          <!-- trash icon -->
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- hidden edit form -->
+                  <div id="edit-form-{{ e.id }}" class="entry-edit-form" aria-hidden="true">
+                    <form action="{% url 'nutrition:edit_entry' e.id %}" method="post" class="edit-form-inline">
+                        {% csrf_token %}
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                          <label style="margin:0 0.5rem 0 0; color:#444;">{% trans "Amount (g)" %}</label>
+                          <input name="amount" type="number" step="0.1" min="0.1" value="{{ e.amount }}" style="width:110px; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
+                          <button type="submit" class="btn btn-primary" style="padding:0.45rem 0.8rem;">{% trans "Save" %}</button>
+                          <button type="button" class="btn btn-outline" data-action="cancel-edit" style="padding:0.45rem 0.8rem;">{% trans "Cancel" %}</button>
+                        </div>
+                    </form>
+                    <!-- hidden delete form to submit if user confirm via sticker -->
+                    <form id="delete-form-{{ e.id }}" action="{% url 'nutrition:delete_entry' e.id %}" method="post" style="display:none;">
+                      {% csrf_token %}
+                    </form>
+                  </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p style="text-align: center; color: #999;">{% trans "No entries" %}</p>
+    {% endif %}
+</div>
+
+<!-- Product search via external API (search + barcode lookup) -->
+<div class="card" style="max-width:980px; margin: 1rem auto;">
+  <h3>{% trans "Search product (external database)" %}</h3>
+
+  <!-- free-text search (existing) -->
+  <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.75rem;">
+    <input id="apiSearchInput" type="search" placeholder="{% trans 'Search products (e.g. banana, milk)' %}" style="flex:1; padding:0.6rem; border-radius:6px; border:1px solid var(--border-color);">
+    <button id="apiSearchBtn" class="btn btn-outline">{% trans "Search" %}</button>
+  </div>
+
+  <!-- barcode lookup -->
+  <div style="display:flex; gap:0.5rem; align-items:center;">
+    <input id="apiBarcodeInput" type="text" placeholder="{% trans 'Enter UPC / Barcode (e.g. 012345678905)' %}" style="flex:0.6; padding:0.6rem; border-radius:6px; border:1px solid var(--border-color);">
+    <button id="apiBarcodeBtn" class="btn btn-outline">{% trans "Lookup by barcode" %}</button>
+    <div style="flex:1; color:#666; font-size:0.9rem;">{% trans "Or search by name using the field above." %}</div>
+  </div>
+
+  <div id="apiResults" style="margin-top:1rem;"></div>
+</div>
+
+</div><!-- #root -->
+
+<!-- JS: search + add via API (extended, includes renderResults + renderSingle) -->
+<script>
+(function(){
+  const apiSearchBtn = document.getElementById('apiSearchBtn');
+  const apiSearchInput = document.getElementById('apiSearchInput');
+  const apiBarcodeBtn = document.getElementById('apiBarcodeBtn');
+  const apiBarcodeInput = document.getElementById('apiBarcodeInput');
+  const apiResults = document.getElementById('apiResults');
+
+  function csrfToken() {
+    const name = 'csrftoken';
+    const c = document.cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='));
+    return c ? decodeURIComponent(c.split('=')[1]) : '';
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  function showMessage(msg, type){
+    apiResults.innerHTML = `<div class="${type==='error'?'error':'success'}" style="padding:0.75rem; border-radius:6px;">${escapeHtml(msg)}</div>`;
+  }
+
+  async function searchProducts(q){
+    apiResults.innerHTML = '<p style="color:#666;">{% trans "Searching..." %}</p>';
+    try {
+      const res = await fetch("{% url 'nutrition:api_product_search' %}?q=" + encodeURIComponent(q));
+      if(!res.ok) throw new Error('Network response not ok');
+      const json = await res.json();
+      renderResults(json.results || []);
+    } catch (e) {
+      console.error('searchProducts error', e);
+      showMessage("{% trans 'Search failed, try again.' %}", 'error');
+    }
+  }
+
+  async function lookupBarcode(code){
+    apiResults.innerHTML = '<p style="color:#666;">{% trans "Looking up barcode..." %}</p>';
+    try {
+      const res = await fetch("{% url 'nutrition:api_product_lookup' %}?barcode=" + encodeURIComponent(code));
+      if(!res.ok){
+        if(res.status === 404) { showMessage("{% trans 'Product not found for this barcode.' %}", 'error'); return; }
+        throw new Error('Network response not ok');
+      }
+      const json = await res.json();
+      if(json.result){
+        renderSingle(json.result);
+      } else {
+        showMessage("{% trans 'Product not found for this barcode.' %}", 'error');
+      }
+    } catch (e) {
+      console.error('lookupBarcode error', e);
+      showMessage("{% trans 'Lookup failed, try again.' %}", 'error');
+    }
+  }
+
+  // render array of results (search)
+  function renderResults(items){
+    if(!items || items.length === 0){
+      apiResults.innerHTML = '<p style="color:#666;">{% trans "No results." %}</p>';
+      return;
+    }
+    const list = document.createElement('div');
+    list.style.display = 'grid';
+    list.style.gridTemplateColumns = 'repeat(auto-fit,minmax(220px,1fr))';
+    list.style.gap = '0.75rem';
+    items.forEach(it=>{
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <strong style="display:block; margin-bottom:0.5rem;">${escapeHtml(it.name)}</strong>
+        <div style="font-size:0.95rem; color:#444;">
+          <div>{% trans "Calories" %}: <b>${Number(it.kcal||0).toFixed(1)}</b> kcal/100g</div>
+          <div>{% trans "Protein" %}: <b>${Number(it.protein||0).toFixed(1)}</b> g/100g</div>
+          <div>{% trans "Fat" %}: <b>${Number(it.fat||0).toFixed(1)}</b> g/100g</div>
+          <div>{% trans "Carbs" %}: <b>${Number(it.carbs||0).toFixed(1)}</b> g/100g</div>
+        </div>
+        <div style="margin-top:0.75rem; display:flex; gap:0.5rem; align-items:center;">
+          <input type="number" min="1" step="0.1" value="100" style="width:110px; padding:0.4rem; border-radius:6px; border:1px solid var(--border-color);" class="amount-input">
+          <button class="btn btn-primary add-api-btn">{% trans "Add from API" %}</button>
+        </div>
+      `;
+      const btn = card.querySelector('.add-api-btn');
+      const amountInput = card.querySelector('.amount-input');
+      btn.addEventListener('click', async function(){
+        const amount = parseFloat(amountInput.value) || 0;
+        if(amount <= 0){ alert("{% trans 'Enter a positive amount (grams)' %}"); return; }
+        const payload = {
+          name: it.name,
+          kcal: it.kcal,
+          protein: it.protein,
+          fat: it.fat,
+          carbs: it.carbs,
+          amount: amount
+        };
+        try {
+          const resp = await fetch("{% url 'nutrition:api_add_entry' %}", {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken()
+            },
+            body: JSON.stringify(payload)
+          });
+          if(!resp.ok) {
+            const txt = await resp.text();
+            alert("{% trans 'Add failed:' %} " + txt);
+            return;
+          }
+          const data = await resp.json();
+          if(data.success){
+            location.reload();
+          } else {
+            alert("{% trans 'Add failed' %}");
+          }
+        } catch (e) {
+          console.error('add entry error', e);
+          alert("{% trans 'Network error, try again.' %}");
+        }
+      });
+      list.appendChild(card);
+    });
+    apiResults.innerHTML = '';
+    apiResults.appendChild(list);
+  }
+
+  // render single barcode lookup result
+  function renderSingle(it){
+    apiResults.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <strong style="display:block; margin-bottom:0.5rem;">${escapeHtml(it.name)} ${it.barcode ? ' — ' + escapeHtml(it.barcode) : ''}</strong>
+      <div style="font-size:0.95rem; color:#444;">
+        <div>{% trans "Calories" %}: <b>${Number(it.kcal||0).toFixed(1)}</b> kcal/100g</div>
+        <div>{% trans "Protein" %}: <b>${Number(it.protein||0).toFixed(1)}</b> g/100g</div>
+        <div>{% trans "Fat" %}: <b>${Number(it.fat||0).toFixed(1)}</b> g/100g</div>
+        <div>{% trans "Carbs" %}: <b>${Number(it.carbs||0).toFixed(1)}</b> g/100g</div>
+      </div>
+      <div style="margin-top:0.75rem; display:flex; gap:0.5rem; align-items:center;">
+        <input type="number" min="1" step="0.1" value="100" style="width:110px; padding:0.4rem; border-radius:6px; border:1px solid var(--border-color);" class="amount-input">
+        <button class="btn btn-primary add-api-btn">{% trans "Add from API" %}</button>
+      </div>
+    `;
+    const btn = card.querySelector('.add-api-btn');
+    const amountInput = card.querySelector('.amount-input');
+    btn.addEventListener('click', async function(){
+      const amount = parseFloat(amountInput.value) || 0;
+      if(amount <= 0){ alert("{% trans 'Enter a positive amount (grams)' %}"); return; }
+      const payload = {
+        name: it.name,
+        kcal: it.kcal,
+        protein: it.protein,
+        fat: it.fat,
+        carbs: it.carbs,
+        amount: amount
+      };
+      try {
+        const resp = await fetch("{% url 'nutrition:api_add_entry' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken()
+          },
+          body: JSON.stringify(payload)
+        });
+        if(!resp.ok) {
+          const txt = await resp.text();
+          alert("{% trans 'Add failed:' %} " + txt);
+          return;
+        }
+        const data = await resp.json();
+        if(data.success){
+          location.reload();
+        } else {
+          alert("{% trans 'Add failed' %}");
+        }
+      } catch (e) {
+        console.error('add entry error', e);
+        alert("{% trans 'Network error, try again.' %}");
+      }
+    });
+    apiResults.appendChild(card);
+  }
+
+  // events
+  apiSearchBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    const q = apiSearchInput.value.trim();
+    if(q) searchProducts(q);
+  });
+  apiSearchInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); apiSearchBtn.click(); }
+  });
+
+  apiBarcodeBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    const code = apiBarcodeInput.value.trim();
+    if(code) lookupBarcode(code);
+  });
+  apiBarcodeInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); apiBarcodeBtn.click(); }
+  });
+
+})();
+</script>
+
+<!-- JS: handle sticker actions (toggle edit / delete) -->
+<script>
+(function(){
+  function $(sel, root=document) { return root.querySelector(sel); }
+  function $all(sel, root=document) { return Array.from(root.querySelectorAll(sel)); }
+
+  // toggle edit form visibility
+  $all('.sticker--edit').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const parent = btn.closest('.entry-actions');
+      const entryId = parent.dataset.entryId;
+      const form = document.getElementById('edit-form-' + entryId);
+      if(!form) return;
+      const visible = form.classList.toggle('visible');
+      form.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      // focus input when open
+      if(visible){
+        const input = form.querySelector('input[name="amount"]');
+        if(input){ input.focus(); input.select(); }
+      }
+    });
+  });
+
+  // cancel edit
+  $all('[data-action="cancel-edit"]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const formWrap = btn.closest('.entry-edit-form');
+      formWrap.classList.remove('visible');
+      formWrap.setAttribute('aria-hidden','true');
+    });
+  });
+
+  // delete via sticker (confirm then submit hidden form)
+  $all('.sticker--delete').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const parent = btn.closest('.entry-actions');
+      const entryId = parent.dataset.entryId;
+      if(!confirm('{% trans "Are you sure you want to delete this entry?" %}')) return;
+      const delForm = document.getElementById('delete-form-' + entryId);
+      if(delForm){
+        delForm.submit();
+      } else {
+        // fallback: fetch delete endpoint
+        fetch('{% url "nutrition:delete_entry" 0 %}'.replace('/0/','/' + entryId + '/'), {
+          method: 'POST',
+          headers: {'X-CSRFToken': (document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/)||[])[2] || ''},
+        }).then(()=> location.reload()).catch(()=> alert('{% trans "Delete failed" %}'));
+      }
+    });
+  });
+
+})();
+</script>
+
+</body>
+</html>

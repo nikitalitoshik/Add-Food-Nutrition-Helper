@@ -1,0 +1,105 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: my_nutrition_app\n"
+"POT-Creation-Date: 2025-11-27 00:00+0000\n"
+"PO-Revision-Date: 2025-11-27 00:00+0000\n"
+"Last-Translator: Auto <auto@example.com>\n"
+"Language-Team: Russian\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+# Russian translations (msgstr same as msgid because templates already in Russian)
+msgid "Добавить еду — Помощник по питанию"
+msgstr "Добавить еду — Помощник по питанию"
+
+msgid "Язык / Language"
+msgstr "Язык / Language"
+
+msgid "Change"
+msgstr "Change"
+
+msgid "Добавить еду"
+msgstr "Добавить еду"
+
+msgid "Продукт"
+msgstr "Продукт"
+
+msgid "Количество (грамм)"
+msgstr "Количество (грамм)"
+
+msgid "Добавить"
+msgstr "Добавить"
+
+msgid "Настроить профиль (вес, рост, цель)"
+msgstr "Настроить профиль (вес, рост, цель)"
+
+msgid "Сегодня (сумма)"
+msgstr "Сегодня (сумма)"
+
+msgid "Калории"
+msgstr "Калории"
+
+msgid "Белки"
+msgstr "Белки"
+
+msgid "Жиры"
+msgstr "Жиры"
+
+msgid "Углеводы"
+msgstr "Углеводы"
+
+msgid "Нет записей за сегодня."
+msgstr "Нет записей за сегодня."
+
+msgid "Рекомендации по калориям (по профилю)"
+msgstr "Рекомендации по калориям (по профилю)"
+
+msgid "Рекомендуемые калории с учётом цели"
+msgstr "Рекомендуемые калории с учётом цели"
+
+msgid "Примерный план макро (в граммах)"
+msgstr "Примерный план макро (в граммах)"
+
+msgid "Белок"
+msgstr "Белок"
+
+msgid "Жиры"
+msgstr "Жиры"
+
+msgid "Углеводы"
+msgstr "Углеводы"
+
+msgid "Записи за сегодня"
+msgstr "Записи за сегодня"
+
+msgid "Нет записей"
+msgstr "Нет записей"
+
+msgid "Профиль — Помощник по питанию"
+msgstr "Профиль — Помощник по питанию"
+
+msgid "Профиль пользователя"
+msgstr "Профиль пользователя"
+
+msgid "Пользователь"
+msgstr "Пользователь"
+
+msgid "Выйти"
+msgstr "Выйти"
+
+msgid "Сохранить профиль"
+msgstr "Сохранить профиль"
+
+msgid "Результаты расчёта"
+msgstr "Результаты расчёта"
+
+msgid "Рекомендуемые калории"
+msgstr "Рекомендуемые калории"
+
+msgid "Предполагаемое распределение макро"
+msgstr "Предполагаемое распределение макро"
+
+msgid "Назад на главную"
+msgstr "Назад на главную"
