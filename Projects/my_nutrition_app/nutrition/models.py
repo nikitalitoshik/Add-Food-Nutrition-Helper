@@ -53,6 +53,7 @@ class Product(models.Model):
 class FoodEntry(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     amount = models.FloatField(help_text="grams")
+    initial_amount = models.FloatField(default=0, help_text="grams - initial amount when created")
     created_at = models.DateField(default=timezone.now)
 
     def calories(self):

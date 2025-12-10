@@ -1,98 +1,1203 @@
 {% load i18n %}
+{% load static %}
+{% load nutrition_extras %}
 <!DOCTYPE html>
 <html>
 <head>
     <title>{% trans "Add Food — Nutrition Helper" %}</title>
+    <link rel="stylesheet" href="{% static 'nutrition/style.css' %}">
 </head>
 <body>
+<div id="root">
 
-<!-- добавлена простая навигация -->
-<nav>
-    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
-    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a> |
-    <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a> |
-    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
-    {% if user.is_authenticated %}
-        | <a href="{% url 'logout' %}?next={% url 'nutrition:home' %}">{% trans "Logout" %}</a>
-    {% else %}
-        | <a href="{% url 'login' %}?next={% url 'nutrition:home' %}">{% trans "Login" %}</a>
-    {% endif %}
-</nav>
-
-<!-- простой переключатель языка -->
-<form action="{% url 'set_language' %}" method="post">
-    {% csrf_token %}
-    <label for="language">{% trans "Language" %}:</label>
-    <select name="language" id="language">
-        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>English</option>
-        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>Latviešu</option>
-        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>Русский</option>
-    </select>
-    <input type="submit" value="{% trans "Change" %}">
-    <input type="hidden" name="next" value="{{ request.path }}">
-</form>
+{# replace local svg + nav with shared partial #}
+{% include 'nutrition/partials/nav.html' %}
 
 <h1>{% trans "Add food" %}</h1>
 
-<form method="post">
-    {% csrf_token %}
-    <label>{% trans "Product" %}:</label>
-    <select name="product">
-        {% for p in products %}
-            <option value="{{ p.id }}">{{ p.name }}</option>
-        {% endfor %}
-    </select>
+<!-- New interactive form for adding custom food entries -->
+<!-- improved custom form inputs: use text+inputmode to allow comma decimals -->
+<form id="addCustomForm" class="card" onsubmit="return false;">
+  <!-- CSRF token still present in page for other forms; we will send X-CSRFToken header from cookie -->
+  <label for="customName">{% trans "Product name" %}:</label>
+  <input id="customName" type="text" placeholder="{% trans 'e.g. Homemade granola' %}" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid var(--border-color);">
 
-    <br><br>
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:0.6rem; margin-top:0.6rem;">
+    <div>
+      <label for="kcal100">{% trans "Calories (per 100g)" %}</label>
+      <input id="kcal100" type="text" inputmode="decimal" placeholder="kcal" style="width:100%; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
+    </div>
+    <div>
+      <label for="protein100">{% trans "Protein (g/100g)" %}</label>
+      <input id="protein100" type="text" inputmode="decimal" placeholder="g" style="width:100%; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
+    </div>
+    <div>
+      <label for="fat100">{% trans "Fat (g/100g)" %}</label>
+      <input id="fat100" type="text" inputmode="decimal" placeholder="g" style="width:100%; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
+    </div>
+    <div>
+      <label for="carbs100">{% trans "Carbs (g/100g)" %}</label>
+      <input id="carbs100" type="text" inputmode="decimal" placeholder="g" style="width:100%; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
+    </div>
+  </div>
 
-    <label>{% trans "Amount (grams)" %}:</label>
-    <input type="number" name="amount" required>
+  <label for="amountGr" style="margin-top:0.8rem;">{% trans "Amount (grams)" %}:</label>
+  <input id="amountGr" name="amount" type="text" inputmode="decimal" value="100" style="width:140px; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
 
-    <br><br>
+  <div id="customPreview" style="display:none; margin-top:0.8rem; color:#444;">
+    <div><strong id="pvName"></strong> — <span id="pvWeight"></span></div>
+    <div id="pvKcal" style="margin-top:0.3rem;"></div>
+    <div id="pvMacros" style="margin-top:0.25rem; color:#666;"></div>
+  </div>
 
-    <button type="submit">{% trans "Add" %}</button>
+  <div style="margin-top:0.9rem;">
+    <button id="submitCustom" class="btn btn-primary">{% trans "Add custom product" %}</button>
+    <button id="clearCustom" type="button" class="btn btn-outline" style="margin-left:0.6rem;">{% trans "Clear" %}</button>
+    <span id="customMsg" style="margin-left:0.8rem; color:#666;"></span>
+  </div>
 </form>
 
-<br>
-<a href="{% url 'nutrition:profile' %}">{% trans "Configure profile (weight, height, goal)" %}</a>
+<script>
+(function(){
+  const apiAddUrl = "{% url 'nutrition:api_add_entry' %}";
+  const nameEl = document.getElementById('customName');
+  const kcalEl = document.getElementById('kcal100');
+  const proteinEl = document.getElementById('protein100');
+  const fatEl = document.getElementById('fat100');
+  const carbsEl = document.getElementById('carbs100');
+  const amountEl = document.getElementById('amountGr');
+  const preview = document.getElementById('customPreview');
+  const pvName = document.getElementById('pvName');
+  const pvWeight = document.getElementById('pvWeight');
+  const pvKcal = document.getElementById('pvKcal');
+  const pvMacros = document.getElementById('pvMacros');
+  const submitBtn = document.getElementById('submitCustom');
+  const clearBtn = document.getElementById('clearCustom');
+  const msg = document.getElementById('customMsg');
+
+  // robust number parser: accepts "123.4" and "123,4"
+  function parseLocaleNumber(v){
+    if(v === null || v === undefined) return 0;
+    const s = String(v).trim().replace(/\s+/g,'').replace(',', '.');
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+  function csrfFromCookie(){ return (document.cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith('csrftoken='))||'').split('=')[1]||''; }
+
+  // template URL with placeholder id=0 — will be replaced on client side for real ids
+  const deleteEntryUrlTemplate = "{% url 'nutrition:delete_entry' 0 %}";
+
+  // --- helper functions for local UI update (no API call) ---
+  function computeKcalFromMacros(p, f, c, amt){
+    p = Number(p)||0; f = Number(f)||0; c = Number(c)||0; amt = Number(amt)||100;
+    return (p * 4 + f * 9 + c * 4) * (amt / 100);
+  }
+  function fmt(n, dp){ return (isFinite(n) ? Number(n) : 0).toFixed(dp); }
+
+  function addToTotals(delta){
+    const calEl = document.getElementById('totCalories');
+    const pEl = document.getElementById('totProtein');
+    const fEl = document.getElementById('totFat');
+    const cEl = document.getElementById('totCarbs');
+    const curCal = parseLocaleNumber(calEl && calEl.textContent ? calEl.textContent : 0);
+    const curP = parseLocaleNumber(pEl && pEl.textContent ? pEl.textContent : 0);
+    const curF = parseLocaleNumber(fEl && fEl.textContent ? fEl.textContent : 0);
+    const curC = parseLocaleNumber(cEl && cEl.textContent ? cEl.textContent : 0);
+    if(calEl) calEl.textContent = fmt(curCal + (Number(delta.kcal)||0), 1);
+    if(pEl) pEl.textContent = fmt(curP + (Number(delta.protein)||0), 1);
+    if(fEl) fEl.textContent = fmt(curF + (Number(delta.fat)||0), 1);
+    if(cEl) cEl.textContent = fmt(curC + (Number(delta.carbs)||0), 1);
+
+    // update eatProgress if present
+    const pWrap = document.getElementById('eatProgress');
+    if(pWrap){
+      const eaten = (parseFloat(pWrap.dataset.eaten)||0) + (Number(delta.kcal)||0);
+      pWrap.dataset.eaten = eaten;
+      const recRaw = pWrap.dataset.rec;
+      const rec = recRaw !== '' ? parseFloat(recRaw) : null;
+      if(rec && rec > 0){
+        const pct = Math.round(Math.min(100, (eaten / rec) * 100));
+        const bar = pWrap.querySelector('.eat-bar');
+        const pctEl = document.getElementById('eatPercent');
+        const vals = pWrap.querySelector('.eat-values');
+        if(bar) bar.style.width = pct + '%';
+        if(pctEl) pctEl.textContent = pct + '%';
+        if(vals) vals.textContent = eaten.toFixed(0) + ' / ' + rec.toFixed(0) + ' kcal';
+      }
+    }
+  }
+
+  // expose addToTotals for other scripts (delete/edit handlers in other IIFEs)
+  window.addToTotals = addToTotals;
+
+  function prependEntry(entry){
+    const list = document.getElementById('entriesList');
+    if(!list) return;
+    const kcal = (entry.kcal && Number(entry.kcal)) ? Number(entry.kcal) : computeKcalFromMacros(entry.protein, entry.fat, entry.carbs, entry.amount);
+    // helper: format with comma as decimal separator to match UI examples
+    function fmtComma(n, dp){
+      const v = (isFinite(n) ? Number(n) : 0).toFixed(dp);
+      return v.replace('.', ',');
+    }
+    const id = entry.id ? entry.id : 'local-' + Date.now();
+    const li = document.createElement('li');
+    li.style.padding = '0.6rem 0';
+    li.style.borderBottom = '1px solid var(--border-color)';
+    // set same data attributes as server-side rendered items
+    li.dataset.entryId = entry.id ? String(entry.id) : '';
+    li.dataset.kcal = (Math.round((kcal||0) * 100) / 100).toFixed(2);
+    li.dataset.protein = (Number(entry.protein) || 0).toFixed(2);
+    li.dataset.fat = (Number(entry.fat) || 0).toFixed(2);
+    li.dataset.carbs = (Number(entry.carbs) || 0).toFixed(2);
+
+    // show initial amount as 0,0g struck-through -> current amount (keep same structure as server-rendered items)
+    const initial = typeof entry.initial_amount !== 'undefined' ? entry.initial_amount : 0;
+
+    li.innerHTML = `
+      <div class="entry-row">
+        <div style="min-width:160px;">
+          <strong class="entry-name">${String(entry.name || '').replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}</strong>
+          <div style="color:#666; font-size:0.95rem;">
+            <div style="margin-bottom:0.3rem;">
+              ${ initial != entry.amount ? `<span class="entry-amount-initial" style="text-decoration:line-through; opacity:0.6;">${fmtComma(initial,1)}g</span> → <strong class="entry-amount-current">${fmtComma(entry.amount,1)}g</strong>` : `<strong class="entry-amount-current">${fmtComma(entry.amount,1)}g</strong>` }
+            </div>
+            <span style="color:var(--primary-color);"><span class="entry-kcal">${fmtComma(kcal,2)}</span> kcal</span>
+            • <span class="entry-protein">${fmtComma(entry.protein,2)}</span> g protein
+            • <span class="entry-fat">${fmtComma(entry.fat,2)}</span> g fat
+            • <span class="entry-carbs">${fmtComma(entry.carbs,2)}</span> g carbs
+          </div>
+        </div>
+
+        <div class="entry-controls">
+          <div class="entry-actions" data-entry-id="${id}">
+            <button type="button" class="sticker sticker--edit" aria-label="{% trans 'Edit entry' %}" title="{% trans 'Edit' %}" data-action="toggle-edit">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
+            </button>
+            <button type="button" class="sticker sticker--delete" aria-label="{% trans 'Delete entry' %}" title="{% trans 'Delete' %}" data-action="delete">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- inline edit form (present for local items too) -->
+      <div id="edit-form-${id}" class="entry-edit-form" aria-hidden="true" style="display:none;">
+        <form class="edit-form-inline" method="post">
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <!-- add for/id to associate label for accessibility -->
+            <label for="edit-amount-${id}" style="margin:0 0.5rem 0 0; color:#444;">{% trans "Amount (g)" %}</label>
+            <input id="edit-amount-${id}" name="amount" type="text" inputmode="decimal" step="0.1" min="0.1" value="${Number(entry.amount).toFixed(1)}" style="width:110px; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary" style="padding:0.45rem 0.8rem;">{% trans "Save" %}</button>
+            <button type="button" class="btn btn-outline" data-action="cancel-edit" style="padding:0.45rem 0.8rem;">{% trans "Cancel" %}</button>
+          </div>
+        </form>
+      </div>
+    `;
+    // Remove placeholder "no-entries" if present
+    const placeholder = list.querySelector('.no-entries');
+    if(placeholder) placeholder.remove();
+    // Insert new item at top
+    list.insertBefore(li, list.firstChild);
+
+    // If this entry corresponds to a server-side object (has numeric id),
+    // the server-side template already includes a hidden delete form with id="delete-form-<id>"
+    // For local items (entry.id == null) we don't create server delete form; deletion will be client-only.
+    // (We left deleteEntryUrlTemplate code above for optional future API usage.)
+    if(entry.id){
+      const editWrap = li.querySelector(`#edit-form-${id}`);
+      if(editWrap){
+        // const delForm = document.createElement('form');
+        // delForm.id = `delete-form-${entry.id}`;
+        // // replace the placeholder 0 in the template URL with the real id (template includes trailing slashes)
+        // delForm.action = deleteEntryUrlTemplate.replace('/0/','/' + entry.id + '/');
+        // delForm.method = 'post';
+        // delForm.style.display = 'none';
+        // // add CSRF hidden input using cookie value
+        // const csrfInput = document.createElement('input');
+        // csrfInput.type = 'hidden';
+        // csrfInput.name = 'csrfmiddlewaretoken';
+        // csrfInput.value = decodeURIComponent(csrfFromCookie());
+        // delForm.appendChild(csrfInput);
+        // editWrap.appendChild(delForm);
+      }
+    }
+
+    // ensure edit form toggle for this new item uses same structure as server items:
+    const formWrap = li.querySelector('.entry-edit-form');
+    if(formWrap){
+      // match server markup: visible controlled via class 'visible' and aria-hidden
+      formWrap.classList.remove('visible');
+      formWrap.setAttribute('aria-hidden', 'true');
+      formWrap.style.display = 'none';
+    }
+
+    // attach submit handler for the inline form (local only) to support Save without server
+    const inlineForm = li.querySelector('.edit-form-inline');
+    if(inlineForm){
+      inlineForm.addEventListener('submit', function(evt){
+        // If form has server action (not the case for local entries), allow default submit
+        const action = inlineForm.getAttribute('action') || '';
+        if(action && action.trim() !== ''){
+          return;
+        }
+        evt.preventDefault();
+        // trigger the existing global submit handler (it listens on document) — but we can reuse local logic:
+        const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+        inlineForm.dispatchEvent(submitEvent);
+      });
+    }
+  }
+  // --- end helpers ---
+
+  function updatePreview(){
+    const name = (nameEl.value || '').trim();
+    const amt = parseLocaleNumber(amountEl.value);
+    const k100 = parseLocaleNumber(kcalEl.value);
+    const p100 = parseLocaleNumber(proteinEl.value);
+    const f100 = parseLocaleNumber(fatEl.value);
+    const c100 = parseLocaleNumber(carbsEl.value);
+    if(!name || !amt) { preview.style.display='none'; return; }
+    const factor = amt/100;
+    pvName.textContent = name;
+    pvWeight.textContent = amt.toFixed(1) + ' g';
+    pvKcal.innerHTML = '<strong>' + (k100*factor).toFixed(2) + '</strong> kcal';
+    pvMacros.textContent = (p100*factor).toFixed(2) + ' g protein • ' + (f100*factor).toFixed(2) + ' g fat • ' + (c100*factor).toFixed(2) + ' g carbs';
+    preview.style.display = 'block';
+  }
+
+  [nameEl,kcalEl,proteinEl,fatEl,carbsEl,amountEl].forEach(el=>el.addEventListener('input', updatePreview));
+
+  clearBtn.addEventListener('click', ()=>{
+    nameEl.value=''; kcalEl.value=''; proteinEl.value=''; fatEl.value=''; carbsEl.value=''; amountEl.value='100';
+    preview.style.display='none'; msg.textContent=''; 
+  });
+
+  submitBtn.addEventListener('click', function(){
+    msg.textContent = '';
+    const name = (nameEl.value || '').trim();
+    const amt = parseLocaleNumber(amountEl.value);
+    if(!name){ msg.textContent = '{% trans "Enter product name" %}'; return; }
+    if(!amt || amt <= 0){ msg.textContent = '{% trans "Enter valid amount" %}'; return; }
+    const kcal = parseLocaleNumber(kcalEl.value);
+    const protein = parseLocaleNumber(proteinEl.value);
+    const fat = parseLocaleNumber(fatEl.value);
+    const carbs = parseLocaleNumber(carbsEl.value);
+    if(kcal === 0 && protein === 0 && fat === 0 && carbs === 0){
+      if(!confirm("{% trans 'All nutrient fields are zero. Continue?' %}")) return;
+    }
+
+    // compute visible kcal if not provided
+    const visibleKcal = kcal && kcal > 0 ? kcal : computeKcalFromMacros(protein, fat, carbs, amt);
+
+    // build entry object and update UI locally (no API call)
+    const entry = {
+      id: null,
+      name: name,
+      kcal: visibleKcal,
+      protein: protein,
+      fat: fat,
+      carbs: carbs,
+      amount: amt
+    };
+
+    // update totals and entries list
+    addToTotals({ kcal: visibleKcal, protein: protein, fat: fat, carbs: carbs });
+    prependEntry(entry);
+
+    // clear form and show brief message
+    nameEl.value=''; kcalEl.value=''; proteinEl.value=''; fatEl.value=''; carbsEl.value=''; amountEl.value='100';
+    preview.style.display='none';
+    msg.textContent = '{% trans "Added (local view)" %}';
+    setTimeout(()=> msg.textContent = '', 2500);
+  });
+
+  preview.style.display='none';
+})();
+</script>
 
 <hr>
-<h2>{% trans "Today (total)" %}:</h2>
-{% if totals %}
-    <p>{% trans "Calories" %}: {{ totals.calories }} kcal</p>
-    <p>{% trans "Protein" %}: {{ totals.protein }} g</p>
-    <p>{% trans "Fat" %}: {{ totals.fat }} g</p>
-    <p>{% trans "Carbs" %}: {{ totals.carbs }} g</p>
-{% else %}
-    <p>{% trans "No entries for today." %}</p>
-{% endif %}
 
-{% if recommendation %}
-<hr>
-<h3>{% trans "Calorie recommendations (by profile)" %}:</h3>
-<p>BMR: {{ recommendation.bmr }} kcal</p>
-<p>TDEE: {{ recommendation.tdee }} kcal</p>
-<p>{% trans "Recommended calories adjusted for goal" %}: {{ recommendation.recommended_kcal }} kcal</p>
-<p>{% trans "Approx macro plan (grams)" %}:</p>
-<ul>
-    <li>{% trans "Protein" %}: {{ recommendation.protein_g }} g</li>
-    <li>{% trans "Fat" %}: {{ recommendation.fat_g }} g</li>
-    <li>{% trans "Carbs" %}: {{ recommendation.carbs_g }} g</li>
-</ul>
-{% endif %}
+<!-- summary header: 'Съедено за сегодня' (inline stats) -->
+<div class="summary-header-wrap" style="max-width:980px; margin:0.25rem auto;">
+  <div class="summary-header">
+    <div class="summary-left" style="display:flex; flex-direction:column; gap:8px; flex:1;">
+      <div class="summary-title">{% trans "Съедено за сегодня" %}</div>
 
-<hr>
-<h2>{% trans "Entries today" %}:</h2>
-<ul>
-    {% for e in entries %}
-        <li>{{ e.product.name }} — {{ e.amount }} g —
-            {{ e.calories|floatformat:2 }} kcal,
-            {{ e.product.protein_per_100g|floatformat:2 }} g/100g
-        </li>
-    {% empty %}
-        <li>{% trans "No entries" %}</li>
-    {% endfor %}
-</ul>
+      <!-- inline stats row (only final values shown) -->
+      <div class="summary-values" role="list" aria-label="{% trans 'Today totals' %}">
+        <div class="summary-value" role="listitem">
+          <span class="sv-label">{% trans "Калории" %}</span>
+          <div class="sv-value" aria-live="polite">
+            <span id="totCalories" style="font-weight:800; font-size:1.1rem;">{{ totals.calories }}</span>
+            <span class="sv-unit" style="margin-left:0.5rem;">kcal</span>
+          </div>
+        </div>
 
+        <div class="summary-value" role="listitem">
+          <span class="sv-label">{% trans "Белки" %}</span>
+          <div class="sv-value" aria-live="polite">
+            <span id="totProtein" style="font-weight:800; font-size:1.1rem;">{{ totals.protein }}</span>
+            <span class="sv-unit" style="margin-left:0.5rem;">g</span>
+          </div>
+        </div>
+
+        <div class="summary-value" role="listitem">
+          <span class="sv-label">{% trans "Жиры" %}</span>
+          <div class="sv-value" aria-live="polite">
+            <span id="totFat" style="font-weight:800; font-size:1.1rem;">{{ totals.fat }}</span>
+            <span class="sv-unit" style="margin-left:0.5rem;">g</span>
+          </div>
+        </div>
+
+        <div class="summary-value" role="listitem">
+          <span class="sv-label">{% trans "Углеводы" %}</span>
+          <div class="sv-value" aria-live="polite">
+            <span id="totCarbs" style="font-weight:800; font-size:1.1rem;">{{ totals.carbs }}</span>
+            <span class="sv-unit" style="margin-left:0.5rem;">g</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- eat progress (unchanged) -->
+    <div id="eatProgress" class="eat-progress" data-eaten="{{ totals.calories|default:0 }}" data-rec="{{ recommendation.recommended_kcal|default:'' }}" aria-hidden="true" style="max-width:260px;">
+      <div class="eat-meta" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div style="font-size:0.9rem; color:#666; font-weight:600;">{% trans "Progress" %}</div>
+        <div id="eatPercent" style="font-weight:800; color:var(--primary-color);">0%</div>
+      </div>
+      <div class="eat-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="margin-top:6px;">
+        <div class="eat-bar" style="width:0%;"></div>
+      </div>
+      <div class="eat-values" style="font-size:0.85rem; color:#666; margin-top:6px;">0 / 0 kcal</div>
+    </div>
+  </div>
+</div>
+
+<!-- Entries list: merged header + date (replaced previous h2)
+     add top margin so spacing equals gap between Entries and Search -->
+<div class="card" style="margin-top: 1rem;">
+    <h2 class="entries-title" style="display:flex; align-items:center; gap:1rem; margin:0 0 0.6rem 0;">
+      <span>{% trans "Entries today" %}</span>
+      <small class="entries-date" style="color:#666; font-weight:600;">— {% now "j F Y" %}</small>
+    </h2>
+
+        {# Always render the UL so JS can insert entries even when server-side list is empty #}
+        <ul id="entriesList" style="list-style:none; padding:0; margin:0;">
+            {% if entries %}
+                {% for e in entries %}
+                <li style="padding:0.6rem 0; border-bottom:1px solid var(--border-color)"
+                    data-entry-id="{{ e.id }}"
+                    data-kcal="{{ e|kcal_from_macros|floatformat:2 }}"
+                    data-protein="{{ e.protein|floatformat:2 }}"
+                    data-fat="{{ e.fat|floatformat:2 }}"
+                    data-carbs="{{ e.carbs|floatformat:2 }}">
+                  <div class="entry-row">
+                    <div style="min-width:160px;">
+                        <strong class="entry-name">{{ e.product.name }}</strong>
+                        <div style="color:#666; font-size:0.95rem;">
+                            <div style="margin-bottom:0.3rem;">
+                              {% if e.initial_amount != e.amount %}
+                                <span class="entry-amount-initial" style="text-decoration:line-through; opacity:0.6;">{{ e.initial_amount|floatformat:1 }}g</span>
+                                → <strong class="entry-amount-current">{{ e.amount|floatformat:1 }}g</strong>
+                              {% else %}
+                                <strong class="entry-amount-current">{{ e.amount|floatformat:1 }}g</strong>
+                              {% endif %}
+                            </div>
+                            <span style="color:var(--primary-color);"><span class="entry-kcal">{{ e|kcal_from_macros|floatformat:2 }}</span> kcal</span>
+                            • <span class="entry-protein">{{ e.protein|floatformat:2 }}</span> g protein
+                            • <span class="entry-fat">{{ e.fat|floatformat:2 }}</span> g fat
+                            • <span class="entry-carbs">{{ e.carbs|floatformat:2 }}</span> g carbs
+                        </div>
+                    </div>
+
+                    <!-- action stickers -->
+                    <div class="entry-controls">
+                      <div class="entry-actions" data-entry-id="{{ e.id }}">
+                        <button type="button" class="sticker sticker--edit" aria-label="{% trans 'Edit entry' %}" title="{% trans 'Edit' %}" data-action="toggle-edit">
+                          <!-- pencil icon -->
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
+                        </button>
+
+                        <button type="button" class="sticker sticker--delete" aria-label="{% trans 'Delete entry' %}" title="{% trans 'Delete' %}" data-action="delete">
+                          <!-- trash icon -->
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- hidden edit form -->
+                  <div id="edit-form-{{ e.id }}" class="entry-edit-form" aria-hidden="true">
+                    <form action="{% url 'nutrition:edit_entry' e.id %}" method="post" class="edit-form-inline">
+                        {% csrf_token %}
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                          <!-- add for -> id to associate label -->
+                          <label for="edit-amount-{{ e.id }}" style="margin:0 0.5rem 0 0; color:#444;">{% trans "Amount (g)" %}</label>
+                          <input id="edit-amount-{{ e.id }}" name="amount" type="text" inputmode="decimal" step="0.1" min="0.1" value="{{ e.amount }}" style="width:110px; padding:0.45rem; border-radius:6px; border:1px solid var(--border-color);">
+                          <button type="submit" class="btn btn-primary" style="padding:0.45rem 0.8rem;">{% trans "Save" %}</button>
+                          <button type="button" class="btn btn-outline" data-action="cancel-edit" style="padding:0.45rem 0.8rem;">{% trans "Cancel" %}</button>
+                        </div>
+                    </form>
+                    <!-- hidden delete form to submit if user confirm via sticker -->
+                    <form id="delete-form-{{ e.id }}" action="{% url 'nutrition:delete_entry' e.id %}" method="post" style="display:none;">
+                      {% csrf_token %}
+                    </form>
+                  </div>
+                </li>
+                {% endfor %}
+            {% else %}
+                <li class="no-entries" style="padding:0.8rem 0; color:#999; text-align:center;">{% trans "No entries" %}</li>
+            {% endif %}
+        </ul>
+</div>
+
+<!-- Product search via external API (search + barcode lookup) -->
+<div class="card" style="max-width:980px; margin: 1rem auto;">
+  <h3>{% trans "Search product (external database)" %}</h3>
+
+  <!-- free-text search (existing) -->
+  <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.75rem;">
+    <!-- accessible label for search (visually hidden) -->
+    <label for="apiSearchInput" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;">
+      {% trans "Search products" %}
+    </label>
+    <input id="apiSearchInput" name="q" type="search" placeholder="{% trans 'Search products (e.g. banana, milk)' %}" style="flex:1; padding:0.6rem; border-radius:6px; border:1px solid var(--border-color);">
+    <button id="apiSearchBtn" class="btn btn-outline">{% trans "Search" %}</button>
+  </div>
+
+  <!-- barcode lookup -->
+  <div style="display:flex; gap:0.5rem; align-items:center;">
+    <!-- accessible label for barcode input (visually hidden) -->
+    <label for="apiBarcodeInput" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;">
+      {% trans "Barcode" %}
+    </label>
+    <input id="apiBarcodeInput" name="barcode" type="text" placeholder="{% trans 'Enter UPC / Barcode (e.g. 012345678905)' %}" style="flex:0.6; padding:0.6rem; border-radius:6px; border:1px solid var(--border-color);">
+    <button id="apiBarcodeBtn" class="btn btn-outline">{% trans "Lookup by barcode" %}</button>
+    <div style="flex:1; color:#666; font-size:0.9rem;">{% trans "Or search by name using the field above." %}</div>
+  </div>
+
+  <div id="apiResults" style="margin-top:1rem;"></div>
+  <!-- Debug helper: copy last API request/response to clipboard for troubleshooting -->
+  <div style="max-width:980px; margin:0.5rem auto;">
+    <button id="copyDebugBtn" type="button" class="btn btn-outline" style="font-size:0.9rem;">{% trans "Copy debug info" %}</button>
+    <span id="debugMsg" style="margin-left:0.6rem;color:#666;font-size:0.9rem;">{% trans "Click after a search; paste here." %}</span>
+  </div>
+</div>
+
+</div><!-- #root -->
+
+<!-- JS: search + add via API (extended, includes renderResults + renderSingle) -->
+<script>
+(function(){
+  const apiSearchBtn = document.getElementById('apiSearchBtn');
+  const apiSearchInput = document.getElementById('apiSearchInput');
+  const apiBarcodeBtn = document.getElementById('apiBarcodeBtn');
+  const apiBarcodeInput = document.getElementById('apiBarcodeInput');
+  const apiResults = document.getElementById('apiResults');
+
+  function csrfToken() {
+    const name = 'csrftoken';
+    const c = document.cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='));
+    return c ? decodeURIComponent(c.split('=')[1]) : '';
+  }
+
+  // robust parser used here as well
+  function parseLocaleNumber(v){
+    if(v === null || v === undefined) return 0;
+    const s = String(v).trim().replace(/\s+/g,'').replace(',', '.');
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  function showMessage(msg, type){
+    apiResults.innerHTML = `<div class="${type==='error'?'error':'success'}" style="padding:0.75rem; border-radius:6px;">${escapeHtml(msg)}</div>`;
+  }
+
+  async function searchProducts(q){
+    const url = "{% url 'nutrition:api_product_search' %}?q=" + encodeURIComponent(q);
+    apiResults.innerHTML = '<p style="color:#666;">{% trans "Searching..." %}</p>';
+    console.debug('searchProducts ->', url);
+    // ensure debug holder exists
+    window.lastApiDebug = window.lastApiDebug || null;
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+      });
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch(err){ console.debug('searchProducts: invalid JSON', err, text); }
+
+      // save debug info for later copy
+      try {
+        const hdrs = {};
+        if(res && res.headers && typeof res.headers.forEach === 'function'){
+          res.headers.forEach((v,k)=> { hdrs[k] = v; });
+        }
+        window.lastApiDebug = {
+          url: url,
+          timestamp: (new Date()).toISOString(),
+          status: res.status,
+          responseHeaders: hdrs,
+          responseText: text,
+          responseJson: json
+        };
+      } catch(_e){ console.debug('failed to record lastApiDebug', _e); }
+
+      if(!res.ok){
+        const errMsg = (json && (json.error || json.message)) ? (json.error || json.message) : "{% trans 'Search failed, try again.' %}";
+        console.error('searchProducts failed', res.status, json || text);
+        showMessage(errMsg, 'error');
+        return;
+      }
+
+      const results = (json && json.results) ? json.results : (Array.isArray(json) ? json : []);
+      console.debug('searchProducts results count', results ? results.length : 0, results);
+
+      if(!results || results.length === 0){
+        apiResults.innerHTML = '<p style="color:#666;">{% trans "No results." %}</p>';
+        return;
+      }
+
+      renderResults(results);
+    } catch (e) {
+      console.error('searchProducts error', e);
+      showMessage("{% trans 'Search failed, try again.' %}", 'error');
+    }
+  }
+
+  async function lookupBarcode(code){
+    const url = "{% url 'nutrition:api_product_lookup' %}?barcode=" + encodeURIComponent(code);
+    apiResults.innerHTML = '<p style="color:#666;">{% trans "Looking up barcode..." %}</p>';
+    console.debug('lookupBarcode ->', url);
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+      });
+      console.debug('lookupBarcode status', res.status);
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch(err) { console.debug('lookupBarcode: invalid JSON', err, text); }
+      if(!res.ok){
+        if(res.status === 404){
+          showMessage("{% trans 'Product not found for this barcode.' %}", 'error');
+          return;
+        }
+        const errMsg = (json && (json.error || json.message)) ? (json.error || json.message) : "{% trans 'Lookup failed, try again.' %}";
+        console.error('lookupBarcode failed', res.status, json || text);
+        showMessage(errMsg, 'error');
+        return;
+      }
+      // json.result expected; be resilient if structure differs
+      const result = json && (json.result || json.item || json.data) ? (json.result || json.item || json.data) : json;
+      if(result){
+        console.debug('lookupBarcode result', result);
+        renderSingle(result);
+      } else {
+        console.debug('lookupBarcode: no result in JSON', json);
+        showMessage("{% trans 'Product not found for this barcode.' %}", 'error');
+      }
+    } catch (e) {
+      console.error('lookupBarcode error', e);
+      showMessage("{% trans 'Lookup failed, try again.' %}", 'error');
+    }
+  }
+
+  // render array of results (search)
+  function renderResults(items){
+    if(!items || items.length === 0){
+      apiResults.innerHTML = '<p style="color:#666;">{% trans "No results." %}</p>';
+      return;
+    }
+    const list = document.createElement('div');
+    list.style.display = 'grid';
+    list.style.gridTemplateColumns = 'repeat(auto-fit,minmax(220px,1fr))';
+    list.style.gap = '0.75rem';
+    items.forEach(it=>{
+      try {
+        const card = document.createElement('div');
+        card.className = 'card';
+        try { card.dataset.item = JSON.stringify(it); } catch(e){ /* ignore */ }
+
+        // per-100 fallback
+        const kcal100 = (parseLocaleNumber(it.kcal) || computeKcalFromMacros(it.protein, it.fat, it.carbs, 100) || 0);
+        const prot100 = parseLocaleNumber(it.protein) || 0;
+        const fat100 = parseLocaleNumber(it.fat) || 0;
+        const carbs100 = parseLocaleNumber(it.carbs) || 0;
+
+        card.innerHTML = `
+          <strong style="display:block; margin-bottom:0.5rem;">${escapeHtml(it.name || '(unnamed)')}</strong>
+          <div style="font-size:0.95rem; color:#444;">
+            <div>{% trans "Calories" %}: <b>${Number(kcal100||0).toFixed(1)}</b> kcal/100g</div>
+            <div>{% trans "Protein" %}: <b>${Number(prot100).toFixed(1)}</b> g/100g</div>
+            <div>{% trans "Fat" %}: <b>${Number(fat100).toFixed(1)}</b> g/100g</div>
+            <div>{% trans "Carbs" %}: <b>${Number(carbs100).toFixed(1)}</b> g/100g</div>
+          </div>
+          <div style="margin-top:0.75rem; display:flex; gap:0.5rem; align-items:center;">
+            <input type="text" inputmode="decimal" value="100" class="amount-input" style="width:110px; padding:0.4rem; border-radius:6px; border:1px solid var(--border-color);">
+            <button class="btn btn-primary add-api-btn">{% trans "Add from API" %}</button>
+          </div>
+        `;
+
+        // after innerHTML, set accessible id/name/label for the amount input
+        const amountInput = card.querySelector('.amount-input');
+        const amountId = 'api-amount-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+        if(amountInput){
+          amountInput.id = amountId;
+          amountInput.name = 'amount';
+          // create a visually-hidden label and associate it via for
+          const lbl = document.createElement('label');
+          lbl.setAttribute('for', amountId);
+          lbl.style.position = 'absolute';
+          lbl.style.width = '1px';
+          lbl.style.height = '1px';
+          lbl.style.padding = '0';
+          lbl.style.margin = '-1px';
+          lbl.style.overflow = 'hidden';
+          lbl.style.clip = 'rect(0,0,0,0)';
+          lbl.style.whiteSpace = 'nowrap';
+          lbl.style.border = '0';
+          lbl.textContent = apiAmountLabelText;
+          // insert label before input so label is in DOM flow for assistive tech
+          amountInput.parentNode.insertBefore(lbl, amountInput);
+          // keep aria-label as fallback
+          amountInput.setAttribute('aria-label', apiAmountLabelText);
+        }
+
+        const btn = card.querySelector('.add-api-btn');
+        // re-query amount input (now with id)
+        const amountInput2 = card.querySelector('.amount-input');
+
+        btn.addEventListener('click', async function(){
+          const amount = parseLocaleNumber(amountInput2.value);
+          if(amount <= 0){ alert("{% trans 'Enter a positive amount (grams)' %}"); return; }
+
+          // original item
+          let original = it;
+          if(card.dataset.item){
+            try { original = JSON.parse(card.dataset.item); } catch(e){ /* ignore */ }
+          }
+
+          // robust per-100 values
+          const kcal_per100 = (parseLocaleNumber(original.kcal) || computeKcalFromMacros(original.protein, original.fat, original.carbs, 100) || 0);
+          const protein_per100 = parseLocaleNumber(original.protein) || 0;
+          const fat_per100 = parseLocaleNumber(original.fat) || 0;
+          const carbs_per100 = parseLocaleNumber(original.carbs) || 0;
+
+          // compute actual values for this amount (these are what server templates typically expect)
+          const kcal_value = (kcal_per100 * amount / 100) || 0;
+          const protein_value = (protein_per100 * amount / 100) || 0;
+          const fat_value = (fat_per100 * amount / 100) || 0;
+          const carbs_value = (carbs_per100 * amount / 100) || 0;
+
+          // send both per-entry values AND per-100 values to cover different server expectations
+          const payload = {
+            name: (original.name || '').trim(),
+            // per-entry (actual) values
+            kcal: Number(kcal_value.toFixed(3)),
+            protein: Number(protein_value.toFixed(3)),
+            fat: Number(fat_value.toFixed(3)),
+            carbs: Number(carbs_value.toFixed(3)),
+            amount: amount,
+            // per-100 fallbacks (server might expect these)
+            kcal_per100: Number(kcal_per100.toFixed(3)),
+            protein_per100: Number(protein_per100.toFixed(3)),
+            fat_per100: Number(fat_per100.toFixed(3)),
+            carbs_per100: Number(carbs_per100.toFixed(3))
+          };
+
+          console.debug('Adding from API payload (per-entry values):', payload);
+
+          try {
+            const resp = await fetch("{% url 'nutrition:api_add_entry' %}", {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken()
+              },
+              body: JSON.stringify(payload),
+              credentials: 'same-origin'
+            });
+            const ct = resp.headers.get('content-type') || '';
+            if(!resp.ok){
+              if(ct.includes('application/json')){
+                const err = await resp.json();
+                console.error('Add failed (json):', err);
+                alert((err && (err.error || err.message)) ? String(err.error || err.message) : "{% trans 'Add failed' %}");
+              } else {
+                const text = await resp.text();
+                console.error('Add failed (text):', text);
+                alert("{% trans 'Add failed (server)' %}");
+              }
+              return;
+            }
+            const data = await resp.json();
+            console.debug('api_add_entry response:', data);
+            if(data && data.success){
+              location.reload();
+            } else {
+              alert("{% trans 'Add failed' %}");
+            }
+          } catch (e) {
+            console.error('add entry error', e);
+            alert("{% trans 'Network error, try again.' %}");
+          }
+        });
+
+        list.appendChild(card);
+      } catch (err){
+        console.error('renderResults item error', err, it);
+      }
+    });
+    apiResults.innerHTML = '';
+    apiResults.appendChild(list);
+  }
+
+  // render single barcode lookup result
+  function renderSingle(it){
+    apiResults.innerHTML = '';
+    try {
+      const card = document.createElement('div');
+      card.className = 'card';
+      try { card.dataset.item = JSON.stringify(it); } catch(e){ /* ignore */ }
+
+      const kcal100 = (parseLocaleNumber(it.kcal) || computeKcalFromMacros(it.protein, it.fat, it.carbs, 100) || 0);
+      const prot100 = parseLocaleNumber(it.protein) || 0;
+      const fat100 = parseLocaleNumber(it.fat) || 0;
+      const carbs100 = parseLocaleNumber(it.carbs) || 0;
+
+      card.innerHTML = `
+        <strong style="display:block; margin-bottom:0.5rem;">${escapeHtml(it.name || '(unnamed)')} ${it.barcode ? ' — ' + escapeHtml(it.barcode) : ''}</strong>
+        <div style="font-size:0.95rem; color:#444;">
+          <div>{% trans "Calories" %}: <b>${Number(kcal100).toFixed(1)}</b> kcal/100g</div>
+          <div>{% trans "Protein" %}: <b>${Number(prot100).toFixed(1)}</b> g/100g</div>
+          <div>{% trans "Fat" %}: <b>${Number(fat100).toFixed(1)}</b> g/100g</div>
+          <div>{% trans "Carbs" %}: <b>${Number(carbs100).toFixed(1)}</b> g/100g</div>
+        </div>
+        <div style="margin-top:0.75rem; display:flex; gap:0.5rem; align-items:center;">
+          <input type="text" inputmode="decimal" value="100" class="amount-input" style="width:110px; padding:0.4rem; border-radius:6px; border:1px solid var(--border-color);">
+          <button class="btn btn-primary add-api-btn">{% trans "Add from API" %}</button>
+        </div>
+      `;
+
+      const amountInput = card.querySelector('.amount-input');
+      const amountId = 'api-amount-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+      if(amountInput){
+        amountInput.id = amountId;
+        amountInput.name = 'amount';
+        const lbl = document.createElement('label');
+        lbl.setAttribute('for', amountId);
+        lbl.style.position = 'absolute';
+        lbl.style.width = '1px';
+        lbl.style.height = '1px';
+        lbl.style.padding = '0';
+        lbl.style.margin = '-1px';
+        lbl.style.overflow = 'hidden';
+        lbl.style.clip = 'rect(0,0,0,0)';
+        lbl.style.whiteSpace = 'nowrap';
+        lbl.style.border = '0';
+        lbl.textContent = apiAmountLabelText;
+        amountInput.parentNode.insertBefore(lbl, amountInput);
+        amountInput.setAttribute('aria-label', apiAmountLabelText);
+      }
+
+      const btn = card.querySelector('.add-api-btn');
+
+      btn.addEventListener('click', async function(){
+        const amount = parseLocaleNumber(amountInput.value);
+        if(amount <= 0){ alert("{% trans 'Enter a positive amount (grams)' %}"); return; }
+
+        let original = it;
+        if(card.dataset.item){
+          try { original = JSON.parse(card.dataset.item); } catch(e){ /* ignore */ }
+        }
+
+        const kcal_per100 = (parseLocaleNumber(original.kcal) || computeKcalFromMacros(original.protein, original.fat, original.carbs, 100) || 0);
+        const protein_per100 = parseLocaleNumber(original.protein) || 0;
+        const fat_per100 = parseLocaleNumber(original.fat) || 0;
+        const carbs_per100 = parseLocaleNumber(original.carbs) || 0;
+
+        const kcal_value = (kcal_per100 * amount / 100) || 0;
+        const protein_value = (protein_per100 * amount / 100) || 0;
+        const fat_value = (fat_per100 * amount / 100) || 0;
+        const carbs_value = (carbs_per100 * amount / 100) || 0;
+
+        const payload = {
+          name: (original.name || '').trim(),
+          kcal: Number(kcal_value.toFixed(3)),
+          protein: Number(protein_value.toFixed(3)),
+          fat: Number(fat_value.toFixed(3)),
+          carbs: Number(carbs_value.toFixed(3)),
+          amount: amount,
+          kcal_per100: Number(kcal_per100.toFixed(3)),
+          protein_per100: Number(protein_per100.toFixed(3)),
+          fat_per100: Number(fat_per100.toFixed(3)),
+          carbs_per100: Number(carbs_per100.toFixed(3))
+        };
+
+        console.debug('Adding barcode payload (per-entry values):', payload);
+
+        try {
+          const resp = await fetch("{% url 'nutrition:api_add_entry' %}", {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken()
+            },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin'
+          });
+          const ct = resp.headers.get('content-type') || '';
+          if(!resp.ok){
+            if(ct.includes('application/json')){
+              const err = await resp.json();
+              console.error('Add failed (json):', err);
+              alert((err && (err.error || err.message)) ? String(err.error || err.message) : "{% trans 'Add failed' %}");
+            } else {
+              const text = await resp.text();
+              console.error('Add failed (text):', text);
+              alert("{% trans 'Add failed (server)' %}");
+            }
+            return;
+          }
+          const data = await resp.json();
+          console.debug('api_add_entry response:', data);
+          if(data && data.success){
+            location.reload();
+          } else {
+            alert("{% trans 'Add failed' %}");
+          }
+        } catch (e) {
+          console.error('add entry error', e);
+          alert("{% trans 'Network error, try again.' %}");
+        }
+      });
+
+      apiResults.appendChild(card);
+    } catch(err){
+      console.error('renderSingle error', err, it);
+      apiResults.innerHTML = '<p style="color:#666;">{% trans "No results." %}</p>';
+    }
+  }
+
+  // events
+  apiSearchBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    const q = apiSearchInput.value.trim();
+    if(q) searchProducts(q);
+  });
+  apiSearchInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); apiSearchBtn.click(); }
+  });
+
+  apiBarcodeBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    const code = apiBarcodeInput.value.trim();
+    if(code) lookupBarcode(code);
+  });
+  apiBarcodeInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); apiBarcodeBtn.click(); }
+  });
+
+  // Copy debug info to clipboard
+  document.getElementById('copyDebugBtn').addEventListener('click', function(){
+    const debugInfo = window.lastApiDebug;
+    if(!debugInfo){
+      alert("{% trans 'No debug info available (try a search first).' %}");
+      return;
+    }
+    const json = JSON.stringify(debugInfo, null, 2);
+    navigator.clipboard.writeText(json).then(()=>{
+      document.getElementById('debugMsg').textContent = '{% trans "Debug info copied to clipboard." %}';
+      setTimeout(()=>{ document.getElementById('debugMsg').textContent = '{% trans "Click after a search; paste here." %}'; }, 5000);
+    }).catch(err=>{
+      console.error('Failed to copy debug info', err);
+      alert("{% trans 'Failed to copy debug info' %}");
+    });
+  });
+
+})();
+</script>
+
+<!-- JS: handle sticker actions (toggle edit / delete) -->
+<script>
+(function(){
+  // small utility: robust parse (accepts "1,23" and "1.23")
+  function parseLocaleNumber(v){
+    if(v === null || v === undefined) return 0;
+    const s = String(v).trim().replace(/\s+/g,'').replace(',', '.');
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function getCsrfFromCookie() {
+    const name = 'csrftoken=';
+    const c = document.cookie.split(';').map(s=>s.trim()).find(s=>s.startsWith(name));
+    return c ? decodeURIComponent(c.split('=')[1]) : '';
+  }
+
+  // compute numeric values from an entry <li>
+  function readEntryValues(li){
+    // Prefer current rendered text (live values after edits). Fallback to data-* attributes if DOM text is absent.
+    function textOrData(selector, dataKey){
+      const el = li.querySelector(selector);
+      if(el && el.textContent && String(el.textContent).trim() !== ''){
+        return parseLocaleNumber(el.textContent);
+      }
+      // fallback to dataset (may be empty)
+      return li.dataset && li.dataset[dataKey] ? parseLocaleNumber(li.dataset[dataKey]) : 0;
+    }
+    const kcal = textOrData('.entry-kcal','kcal');
+    const protein = textOrData('.entry-protein','protein');
+    const fat = textOrData('.entry-fat','fat');
+    const carbs = textOrData('.entry-carbs','carbs');
+    return { kcal, protein, fat, carbs };
+  }
+
+  // delegate clicks for edit/delete/cancel
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('button, [data-action]');
+    if(!btn) return;
+
+    const actionEl = btn.closest('[data-action]') || btn;
+    const action = actionEl ? actionEl.getAttribute('data-action') : btn.getAttribute('data-action');
+
+    if(action === 'cancel-edit'){
+      const formWrap = btn.closest('.entry-edit-form');
+      if(formWrap){
+        formWrap.classList.remove('visible');
+        formWrap.setAttribute('aria-hidden','true');
+        formWrap.style.display = 'none';
+      }
+      return;
+    }
+
+    const li = btn.closest('li');
+    if(!li) return;
+
+    if(action === 'toggle-edit'){
+      const formWrap = li.querySelector('.entry-edit-form');
+      if(!formWrap) return;
+      const visible = formWrap.classList.toggle('visible');
+      formWrap.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      formWrap.style.display = visible ? 'block' : 'none';
+      if(visible){
+        const input = formWrap.querySelector('input[name="amount"]');
+        if(input){ input.focus(); input.select(); }
+      }
+      return;
+    }
+
+    if(action === 'delete'){
+      if(!confirm('{% trans "Are you sure you want to delete this entry?" %}')) return;
+
+      const vals = readEntryValues(li);
+      // try to find server delete form by dataset entry id (stable) first
+      const entryId = li.dataset.entryId || '';
+      const delForm = entryId ? document.getElementById('delete-form-' + entryId) : li.querySelector('form[id^="delete-form-"]');
+
+      if(delForm){
+        // perform AJAX delete to keep UI in sync immediately
+        const actionUrl = delForm.action;
+        const formData = new FormData(delForm); // includes csrf input when rendered by server
+        // include csrf header as well
+        fetch(actionUrl, {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin',
+          headers: { 'X-CSRFToken': getCsrfFromCookie() }
+        }).then(resp=>{
+          if(resp.ok){
+            // update totals and remove element
+            if(typeof addToTotals === 'function'){
+              addToTotals({ kcal: -vals.kcal, protein: -vals.protein, fat: -vals.fat, carbs: -vals.carbs });
+            }
+            li.remove();
+          } else {
+            resp.text().then(t => {
+              console.error('Delete failed:', t);
+              alert('{% trans "Delete failed (server)" %}');
+            });
+          }
+        }).catch(err=>{
+          console.error('Delete request failed', err);
+          alert('{% trans "Network error, try again." %}');
+        });
+        return;
+      }
+
+      // Local-only entry (no server delete form): remove and update totals
+      if(typeof addToTotals === 'function'){
+        addToTotals({ kcal: -vals.kcal, protein: -vals.protein, fat: -vals.fat, carbs: -vals.carbs });
+      }
+      li.remove();
+      return;
+    }
+  });
+
+  // handle inline edit form submit (both server and local)
+  document.addEventListener('submit', function(e){
+    const form = e.target;
+    if(!form.classList || !form.classList.contains('edit-form-inline')) return;
+
+    e.preventDefault();
+    const li = form.closest('li');
+    if(!li) return;
+    const amountInput = form.querySelector('input[name="amount"]');
+    const newAmount = parseLocaleNumber(amountInput && amountInput.value ? amountInput.value : 0);
+    if(!newAmount || newAmount <= 0){ alert('{% trans "Enter valid amount" %}'); return; }
+
+    // current displayed values
+    const oldAmountEl = li.querySelector('.entry-amount-current');
+    const oldAmount = parseLocaleNumber(oldAmountEl ? oldAmountEl.textContent.replace('g','') : newAmount);
+
+    const kcalEl = li.querySelector('.entry-kcal');
+    const pEl = li.querySelector('.entry-protein');
+    const fEl = li.querySelector('.entry-fat');
+    const cEl = li.querySelector('.entry-carbs');
+
+    const oldKcal = parseLocaleNumber(kcalEl?.textContent || 0);
+    const oldP = parseLocaleNumber(pEl?.textContent || 0);
+    const oldF = parseLocaleNumber(fEl?.textContent || 0);
+    const oldC = parseLocaleNumber(cEl?.textContent || 0);
+
+    const factorOld = oldAmount / 100 || 1;
+    const per100 = {
+      kcal: factorOld ? (oldKcal / factorOld) : 0,
+      protein: factorOld ? (oldP / factorOld) : 0,
+      fat: factorOld ? (oldF / factorOld) : 0,
+      carbs: factorOld ? (oldC / factorOld) : 0,
+    };
+
+    const newKcal = per100.kcal * (newAmount/100);
+    const newP = per100.protein * (newAmount/100);
+    const newF = per100.fat * (newAmount/100);
+    const newC = per100.carbs * (newAmount/100);
+
+    // if form has server action, submit via fetch to persist; otherwise just update locally
+    const action = form.getAttribute('action') || '';
+    if(action && action.trim() !== ''){
+      const formData = new FormData(form);
+      fetch(action, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin',
+        headers: { 'X-CSRFToken': getCsrfFromCookie() }
+      }).then(resp=>{
+        if(resp.ok){
+          // update DOM and totals on success
+          if(oldAmountEl) oldAmountEl.textContent = newAmount.toFixed(1) + 'g';
+          if(kcalEl) kcalEl.textContent = newKcal.toFixed(2);
+          if(pEl) pEl.textContent = newP.toFixed(2);
+          if(fEl) fEl.textContent = newF.toFixed(2);
+          if(cEl) cEl.textContent = newC.toFixed(2);
+
+          if(typeof addToTotals === 'function'){
+            addToTotals({
+              kcal: newKcal - oldKcal,
+              protein: newP - oldP,
+              fat: newF - oldF,
+              carbs: newC - oldC
+            });
+          }
+          // hide edit form
+          const formWrap = form.closest('.entry-edit-form');
+          if(formWrap){
+            formWrap.classList.remove('visible');
+            formWrap.setAttribute('aria-hidden','true');
+            formWrap.style.display = 'none';
+          }
+        } else {
+          resp.text().then(t=> { console.error('Edit failed', t); alert('{% trans "Edit failed" %}'); });
+        }
+      }).catch(err=>{ console.error('Edit request failed', err); alert('{% trans "Network error" %}'); });
+      return;
+    }
+
+    // local-only update (no server action)
+    if(oldAmountEl) oldAmountEl.textContent = newAmount.toFixed(1) + 'g';
+    if(kcalEl) kcalEl.textContent = newKcal.toFixed(2);
+    if(pEl) pEl.textContent = newP.toFixed(2);
+    if(fEl) fEl.textContent = newF.toFixed(2);
+    if(cEl) cEl.textContent = newC.toFixed(2);
+
+    if(typeof addToTotals === 'function'){
+      addToTotals({
+        kcal: newKcal - oldKcal,
+        protein: newP - oldP,
+        fat: newF - oldF,
+        carbs: newC - oldC
+      });
+    }
+    const formWrap = form.closest('.entry-edit-form');
+    if(formWrap){
+      formWrap.classList.remove('visible');
+      formWrap.setAttribute('aria-hidden','true');
+      formWrap.style.display = 'none';
+    }
+  });
+
+})();
+</script>
+
+<!-- add small script to compute percent and update UI -->
+<script>
+(function(){
+  const rec = document.getElementById('recommendationCard');
+  if(rec){
+    const eaten = parseFloat(rec.dataset.eaten) || 0;
+    const recK = parseFloat(rec.dataset.rec) || 0;
+    const pct = recK > 0 ? Math.min(100, Math.round((eaten/recK)*100)) : 0;
+    const bar = rec.querySelector('.progress-bar');
+    const pctEl = document.getElementById('progressPercent');
+    const vals = document.getElementById('progressValues');
+    if(bar) bar.style.width = pct + '%';
+    if(pctEl) pctEl.textContent = pct + '%';
+    if(vals) vals.textContent = eaten.toFixed(1) + ' / ' + (recK? recK.toFixed(1) : '0.0') + ' kcal';
+    // update ARIA
+    const wrap = rec.querySelector('.progress-wrap');
+    if(wrap) wrap.setAttribute('aria-valuenow', String(pct));
+  }
+})();
+</script>
+
+<!-- add script to update eat progress (insert once before </body>) -->
+<script>
+(function(){
+  const p = document.getElementById('eatProgress');
+  if(!p) return;
+  const eaten = parseFloat(p.dataset.eaten) || 0;
+  const recRaw = p.dataset.rec;
+  const rec = recRaw !== '' ? parseFloat(recRaw) : null;
+  if(!rec || rec <= 0){
+    p.setAttribute('aria-hidden','true');
+    p.style.display = 'none';
+    return;
+  }
+  const pct = Math.round(Math.min(100, (eaten / rec) * 100));
+  const bar = p.querySelector('.eat-bar');
+  const pctEl = document.getElementById('eatPercent');
+  const vals = p.querySelector('.eat-values');
+  if(bar) { bar.style.width = pct + '%'; }
+  if(pctEl) { pctEl.textContent = pct + '%'; }
+  if(vals) { vals.textContent = eaten.toFixed(0) + ' / ' + rec.toFixed(0) + ' kcal'; }
+  // color thresholds
+  if(bar){
+    bar.classList.remove('progress-good','progress-warning','progress-over');
+    if(pct < 80) bar.classList.add('progress-good');
+    else if(pct <= 100) bar.classList.add('progress-warning');
+    else bar.classList.add('progress-over');
+  }
+  // aria
+  const wrap = p.querySelector('.eat-bar-wrap');
+  if(wrap) wrap.setAttribute('aria-valuenow', String(pct));
+  p.setAttribute('aria-hidden','false');
+})();
+</script>
 </body>
 </html>

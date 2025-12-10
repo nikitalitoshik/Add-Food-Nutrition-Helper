@@ -1,0 +1,827 @@
+:root {
+  --primary-color: #4CAF50;
+  --secondary-color: #2196F3;
+  --accent-color: #FF9800;
+  --bg-color: #f5f5f5;
+  --card-bg: #ffffff;
+  --text-color: #333;
+  --text-light: #666;
+  --border-color: #ddd;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+body {
+  line-height: 1.6;
+}
+
+#root {
+  max-width: 1100px;
+  margin: 1.25rem auto;
+  padding: 2rem;
+  min-height: 100vh;
+}
+
+/* Navigation */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+nav a {
+  color: var(--text-color);
+  text-decoration: none;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: background 180ms ease, color 180ms ease, transform 120ms ease;
+  display: inline-block;
+}
+
+nav a:hover {
+  background: linear-gradient(90deg, rgba(76,175,80,0.08), rgba(33,150,243,0.06));
+  color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+.nav-left, .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-left a, .nav-right a {
+  text-decoration: none;
+  color: var(--text-color);
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-left a:hover, .nav-right a:hover {
+  background-color: rgba(76,175,80,0.1);
+  color: var(--primary-color);
+}
+
+/* Language Selector - компактный */
+.language-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-lang-select {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.1);
+  background: #fff;
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+/* Fix for navigation alignment */
+nav .nav-right {
+  margin-left: auto;
+}
+
+/* Responsive tweaks */
+@media (max-width: 720px) {
+  nav {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .nav-left, .nav-right {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  nav { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+  .nav-left { justify-content: flex-start; }
+  .nav-right { justify-content: flex-end; }
+  h1 { text-align: center; }
+  #root { padding: 1rem; margin-top: 0.5rem; }
+  .card, .summary { max-width: 100%; }
+}
+
+/* Headings */
+h1, h2, h3 {
+  margin: 1.5rem 0 1rem;
+  color: var(--text-color);
+}
+
+h1 {
+  font-size: 2rem;
+  text-align: left;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--primary-color);
+}
+
+h2 {
+  font-size: 1.8rem;
+  border-bottom: 3px solid var(--primary-color);
+  padding-bottom: 0.5rem;
+}
+
+/* 1) h3: use primary color (replace blue) */
+h3 {
+  font-size: 1.3rem;
+  color: var(--primary-color); /* was secondary (blue) */
+}
+
+/* Forms */
+form {
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 2rem;
+  transition: all 300ms ease;
+}
+
+form:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+form label {
+  display: block;
+  margin: 1rem 0 0.5rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+form input[type="text"],
+form input[type="email"],
+form input[type="password"],
+form input[type="number"],
+form select,
+form textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: all 300ms ease;
+}
+
+form input:focus,
+form select:focus,
+form textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+form button,
+button[type="submit"] {
+  background: var(--primary-color);
+  color: white;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+form button:hover,
+button[type="submit"]:hover {
+  background: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+/* Buttons - consistent theme */
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: none;
+  cursor: pointer;
+  transition: transform 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(33,150,243,0.12);
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(33,150,243,0.16);
+  opacity: 0.98;
+}
+
+/* secondary variant (outline) */
+.btn-outline {
+  background: transparent;
+  color: var(--primary-color);
+  border: 2px solid rgba(0,0,0,0.06);
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+}
+
+/* Cards */
+.card {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+  max-width: 980px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Stronger summary cards (top ate-today row) */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0.5rem auto 1.25rem;
+}
+.summary-card {
+  border-radius: 10px;
+  padding: 1.25rem;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  color: #fff;
+  background: linear-gradient(135deg, #2fb36b 0%, #2b9df4 100%);
+  box-shadow: 0 12px 28px rgba(41,60,85,0.06);
+}
+.summary-card .label { font-size: 0.95rem; opacity: 0.95; margin-bottom: 0.25rem; }
+.summary-card .value { font-size: 2rem; font-weight: 800; margin-bottom: 0.25rem; }
+.summary-card .unit  { font-size: 0.9rem; opacity: 0.9; }
+
+/* Today label */
+.today-label {
+  display:inline-block;
+  margin: 0.6rem auto 0.4rem;
+  color: var(--text-color);
+  font-weight:700;
+  max-width:1100px;
+  padding-left:0.5rem;
+}
+
+/* Recommendation card (bigger, clearer) */
+.recommendation-card {
+  max-width: 1100px;
+  margin: 1.2rem auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(16,24,40,0.06);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.recommendation-card .rec-header {
+  padding: 0.9rem 1.25rem;
+  background: linear-gradient(90deg, #2fb36b, #2b9df4);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.recommendation-card .rec-body { padding: 0.9rem 1rem 1rem; color: #1f2937; }
+.recommendation-card .rec-body { padding-bottom: 1.5rem; } /* Improve spacing/contrast for recommendation block and add progress UI */
+
+/* progress area */
+.rec-progress { margin-top: 0.9rem; padding: 0.6rem 0.25rem; }
+.progress-meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem; }
+.progress-label { color:#444; font-weight:600; font-size:0.95rem; }
+.progress-percent { font-weight:800; color:var(--primary-color); }
+
+.progress-wrap {
+  height: 12px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  transition: width 400ms ease;
+}
+
+/* small detail text */
+.progress-details { margin-top:0.45rem; color:#6b7280; font-size:0.9rem; }
+
+/* slightly reduce height of rec-top cards for compact look */
+.rec-top-card { min-height: 84px; padding:0.9rem; }
+.rec-top-card .k-value { font-size:1.6rem; }
+
+/* make macro items more compact */
+.rec-macros .macro-item { padding:0.65rem; }
+
+/* colored accents */
+.macro-item.protein { border-left-color: #2fb36b; }
+.macro-item.fat     { border-left-color: #2b9df4; }
+.macro-item.carbs   { border-left-color: #ffb347; }
+
+/* small note */
+.rec-note { color:#6b7280; margin-top:0.9rem; display:flex; gap:0.5rem; align-items:flex-start; }
+
+/* responsive */
+@media (max-width:720px){
+  .rec-top { grid-template-columns: 1fr; }
+  .summary { grid-template-columns: repeat(2,1fr); }
+}
+
+/* Lists */
+ul, ol {
+  margin: 1rem 0 1.5rem 1.5rem;
+}
+
+li {
+  margin-bottom: 0.75rem;
+  line-height: 1.8;
+}
+
+/* Links */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: all 300ms ease;
+}
+
+a:hover {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+/* HR */
+hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  margin: 2rem 0;
+  border-radius: 1px;
+}
+
+/* Error Messages */
+.error {
+  background: #ffebee;
+  color: #c62828;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+  border-left: 4px solid #c62828;
+}
+
+/* Success Messages */
+.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+  border-left: 4px solid #2e7d32;
+}
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  background: var(--card-bg);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+table th {
+  background: var(--primary-color);
+  color: white;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+table tr:hover {
+  background: var(--bg-color);
+}
+
+/* Entry action stickers (small round buttons) */
+.entry-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.sticker {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(250,250,250,0.95));
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.06);
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  font-size: 0.95rem;
+}
+
+.sticker:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+}
+
+.sticker--edit {
+  color: #2e7d32;
+  border-color: rgba(46,125,50,0.12);
+}
+
+.sticker--delete {
+  color: #c62828;
+  border-color: rgba(198,40,40,0.12);
+}
+
+.sticker svg { width: 16px; height: 16px; fill: currentColor; }
+
+/* Hidden edit form panel */
+.entry-edit-form {
+  display: none;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+  transition: max-height 220ms ease, opacity 180ms ease;
+  overflow: hidden;
+}
+
+.entry-edit-form.visible {
+  display: block;
+  opacity: 1;
+}
+
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.entry-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card, form {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* New nav layout + icon stickers */
+.top-nav {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  padding:1rem;
+  background:#fff;
+  border-radius:8px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+  margin-bottom:1.25rem;
+}
+
+.top-nav .nav-left,
+.top-nav .nav-right {
+  display:flex;
+  gap:0.75rem;
+  align-items:center;
+}
+
+/* unified link style */
+.nav-link {
+  display:inline-flex;
+  align-items:center;
+  gap:0.6rem;
+  padding:0.5rem 0.9rem;
+  border-radius:10px;
+  color:var(--text-color);
+  text-decoration:none;
+  font-weight:600;
+  transition:all 160ms ease;
+}
+
+.nav-link .nav-icon {
+  width:18px;
+  height:18px;
+  fill:currentColor;
+  opacity:0.85;
+  display:inline-block;
+}
+
+.nav-link .nav-text {
+  display:inline-block;
+}
+
+/* active / hover */
+.nav-link:hover {
+  transform:translateY(-3px);
+  color:var(--primary-color);
+  background:rgba(76,175,80,0.06);
+}
+
+.nav-link.active {
+  background:linear-gradient(90deg, rgba(76,175,80,0.12), rgba(33,150,243,0.06));
+  color:var(--primary-color);
+  box-shadow:0 8px 20px rgba(33,150,243,0.06);
+}
+
+/* right-aligned calculator link emphasis */
+.nav-link-right {
+  padding-left:1rem;
+  padding-right:1rem;
+  border-radius:12px;
+}
+
+/* language selector as a small card */
+.language-card {
+  display:inline-flex;
+  align-items:center;
+  padding:0.5rem;
+  border-radius:10px;
+  background:#fff;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+  margin-left:0.5rem;
+}
+
+.language-card .nav-lang-select {
+  border:none;
+  background:transparent;
+  padding:0.25rem 0.4rem;
+  font-weight:700;
+  cursor:pointer;
+}
+
+/* ===== Consolidated nav / language / account overrides (last rules to avoid duplication issues) =====
+   Purpose: ensure language selector is visually aligned with links, remove heavy white square,
+   and present a single compact account icon button. These rules are written with .top-nav prefix
+   so they apply to the shared partial and override earlier, duplicated declarations. */
+.top-nav .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* language card: minimal, transparent background, slightly lowered to match link baseline */
+.top-nav .language-card {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.5rem;    /* compact container */
+  border-radius: 8px;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin-left: 0.5rem;
+}
+
+/* select: remove heavy box, reduce vertical padding, nudge down a few px */
+.top-nav .language-card .nav-lang-select {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none !important;
+  background: transparent !important;
+  padding: 0.06rem 0.5rem !important;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--text-color);
+  cursor: pointer;
+  transform: translateY(4px); /* visually lower the select to align with links */
+}
+
+/* caret: subtle and positioned to match the translated select */
+.top-nav .language-card::after {
+  content: "▾";
+  position: absolute;
+  right: 6px;
+  top: 62%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #999;
+  font-size: 0.78rem;
+}
+
+/* compact account icon button */
+.top-nav .auth-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.top-nav .auth-links .account-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.04);
+  text-decoration: none;
+  color: var(--text-color);
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.top-nav .auth-links .account-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 26px rgba(0,0,0,0.08);
+  background: rgba(76,175,80,0.03);
+  color: var(--primary-color);
+}
+
+.top-nav .auth-links .account-btn .nav-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  opacity: 0.95;
+}
+
+/* small responsive tweak to keep select from overlapping on very narrow screens */
+@media (max-width: 420px) {
+  .top-nav .language-card .nav-lang-select { transform: translateY(2px); font-size:0.9rem; }
+  .top-nav .auth-links .account-btn { width:40px; height:40px; }
+}
+
+/* ===== end consolidated overrides ===== */
+
+/* ===== Restore & strengthen "Съедено за сегодня" visual styles ===== */
+.summary-header-wrap {
+  max-width: 980px;
+  margin: 0.5rem auto;
+  padding: 0; /* container padding handled by inner .summary-header */
+}
+
+.summary-header {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+/* left column: title + small description */
+.summary-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 260px;
+}
+.summary-title {
+  font-weight: 800;
+  color: var(--primary-color);
+  font-size: 1.05rem;
+  letter-spacing: 0.2px;
+}
+
+/* inline totals row */
+.summary-values {
+  display: flex;
+  gap: 2.2rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* each stat block */
+.summary-value {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 110px;
+}
+
+/* label / number / unit */
+.sv-label {
+  color: #666;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.sv-number {
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: #111;
+}
+.sv-unit {
+  color: #888;
+  font-size: 0.82rem;
+}
+
+/* eat progress card (right side) — visible, compact and consistent */
+#eatProgress {
+  max-width: 260px;
+  padding: 0.6rem;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+  border: 1px solid rgba(0,0,0,0.04);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.04);
+}
+
+/* progress bar visuals */
+.eat-bar-wrap {
+  height: 14px;
+  background: rgba(0,0,0,0.05);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.eat-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  transition: width 420ms ease;
+  border-radius: 999px;
+}
+.eat-progress .eat-values {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* percent text */
+#eatPercent {
+  font-weight: 800;
+  color: var(--primary-color);
+  font-size: 1rem;
+}
+
+/* color thresholds (optionally applied by JS) */
+.eat-bar.progress-good   { background: linear-gradient(90deg,#4caf50,#2fb36b); }
+.eat-bar.progress-warning{ background: linear-gradient(90deg,#ffb347,#ff6f61); }
+.eat-bar.progress-over   { background: linear-gradient(90deg,#ff6b6b,#ff3b30); }
+
+/* small responsive tweak */
+@media (max-width: 720px) {
+  .summary-header { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+  .summary-left { align-items: flex-start; }
+  #eatProgress { max-width: 100%; }
+}
+
+/* ===== end of summary / progress restoration ===== */
+

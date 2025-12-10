@@ -1,0 +1,72 @@
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>{% trans "Products — Nutrition Helper" %}</title>
+  <link rel="stylesheet" href="{% static 'nutrition/style.css' %}">
+</head>
+<body>
+<div id="root">
+  <nav>
+    <!-- ...existing nav structure... -->
+    <div class="nav-left">
+      <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a>
+      <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a>
+      <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a>
+      <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
+      <a href="{% url 'nutrition:products' %}">{% trans "Products" %}</a>
+    </div>
+    <div class="nav-right">
+      {% if user.is_authenticated %}
+        <a href="{% url 'logout' %}">{% trans "Logout" %}</a>
+      {% else %}
+        <a href="{% url 'login' %}">{% trans "Login" %}</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <h1>{% trans "Products" %}</h1>
+
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <h2>{% trans "Add new product" %}</h2>
+    <form method="post">
+      {% csrf_token %}
+      <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap:1rem;">
+        {{ form.name.label_tag }} {{ form.name }}
+        {{ form.calories_per_100g.label_tag }} {{ form.calories_per_100g }}
+        {{ form.protein_per_100g.label_tag }} {{ form.protein_per_100g }}
+        {{ form.fat_per_100g.label_tag }} {{ form.fat_per_100g }}
+        {{ form.carbs_per_100g.label_tag }} {{ form.carbs_per_100g }}
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:1rem;">{% trans "Save product" %}</button>
+    </form>
+  </div>
+
+  <hr>
+
+  <div class="card" style="max-width: 900px; margin: 0 auto;">
+    <h2>{% trans "Existing products" %}</h2>
+    <table>
+      <thead>
+        <tr><th>{% trans "Name" %}</th><th>{% trans "kcal/100g" %}</th><th>{% trans "Protein" %}</th><th>{% trans "Fat" %}</th><th>{% trans "Carbs" %}</th></tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>{{ p.calories_per_100g }}</td>
+            <td>{{ p.protein_per_100g }}</td>
+            <td>{{ p.fat_per_100g }}</td>
+            <td>{{ p.carbs_per_100g }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5">{% trans "No products yet." %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

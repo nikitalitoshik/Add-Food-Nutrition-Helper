@@ -1,0 +1,57 @@
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% trans "Sign Up — Nutrition Helper" %}</title>
+    <link rel="stylesheet" href="{% static 'nutrition/style.css' %}">
+</head>
+<body>
+<div id="root">
+
+<nav>
+  <div class="nav-left">
+    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
+    <a href="{% url 'nutrition:login' %}">{% trans "Login" %}</a>
+  </div>
+  <div class="nav-right">
+    <form action="{% url 'set_language' %}" method="post" class="language-form nav-lang" id="langFormSignup" title="{% trans 'Change language' %}">
+      {% csrf_token %}
+      <select name="language" class="nav-lang-select" onchange="this.form.submit();">
+        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
+        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
+        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
+      </select>
+      <input type="hidden" name="next" value="{{ request.path }}">
+    </form>
+  </div>
+</nav>
+
+<h1>{% trans "Sign Up" %}</h1>
+
+<div class="card" style="max-width: 500px; margin: 0 auto;">
+    {% if form.non_field_errors %}
+        <div class="error">
+            {% for error in form.non_field_errors %}
+                {{ error }}<br>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" style="width: 100%;">{% trans "Create account" %}</button>
+    </form>
+
+    <hr style="margin: 1.5rem 0;">
+
+    <p style="text-align: center; color: #666;">
+        {% trans "Already have an account?" %} 
+        <a href="{% url 'nutrition:login' %}" style="color: var(--primary-color); font-weight: 500;">{% trans "Log in" %}</a>
+    </p>
+</div>
+
+</div><!-- #root -->
+</body>
+</html>

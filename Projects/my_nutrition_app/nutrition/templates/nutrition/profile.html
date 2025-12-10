@@ -1,47 +1,163 @@
 {% load i18n %}
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
     <title>{% trans "Profile — Nutrition Helper" %}</title>
+    <link rel="stylesheet" href="{% static 'nutrition/style.css' %}">
 </head>
 <body>
-<!-- simple language switcher -->
-<form action="{% url 'set_language' %}" method="post">
-    {% csrf_token %}
-    <label for="language">{% trans "Language" %}:</label>
-    <select name="language" id="language">
-        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>English</option>
-        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>Latviešu</option>
-        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>Русский</option>
-    </select>
-    <input type="submit" value="{% trans "Change" %}">
-    <input type="hidden" name="next" value="{{ request.path }}">
-</form>
+<div id="root">
+
+<!-- обновлённая навигация с селектором языка -->
+<!-- inline SVG sprite (icons for nav) -->
+<svg style="display:none;" aria-hidden="true">
+  <symbol id="icon-home" viewBox="0 0 24 24"><path d="M12 3l9 8h-3v8h-4v-5H10v5H6v-8H3z"/></symbol>
+  <symbol id="icon-progress" viewBox="0 0 24 24"><path d="M3 17h2v-7H3v7zm4 0h2v-11H7v11zm4 0h2v-4h-2v4zm4 0h2v-9h-2v9zm4 0h2v-2h-2v2z"/></symbol>
+  <symbol id="icon-profile" viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z"/></symbol>
+  <symbol id="icon-calculator" viewBox="0 0 24 24"><path d="M7 2h10v20H7V2zm2 2v4h6V4H9zm0 6h2v2H9v-2zm4 0h2v2h-2v-2zM9 14h2v2H9v-2zm4 0h2v2h-2v-2z"/></symbol>
+</svg>
+
+<nav class="top-nav">
+  <div class="nav-left">
+    <a class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}" href="{% url 'nutrition:home' %}" title="{% trans 'Home' %}">
+      <svg class="nav-icon" aria-hidden="true"><use href="#icon-home"></use></svg>
+      <span class="nav-text">{% trans "Home" %}</span>
+    </a>
+
+    <a class="nav-link {% if request.resolver_match.url_name == 'progress' %}active{% endif %}" href="{% url 'nutrition:progress' %}" title="{% trans 'Progress' %}">
+      <svg class="nav-icon" aria-hidden="true"><use href="#icon-progress"></use></svg>
+      <span class="nav-text">{% trans "Progress" %}</span>
+    </a>
+
+    <a class="nav-link {% if request.resolver_match.url_name == 'calculator' %}active{% endif %}" href="{% url 'nutrition:calculator' %}" title="{% trans 'Calculator' %}">
+      <svg class="nav-icon" aria-hidden="true"><use href="#icon-calculator"></use></svg>
+      <span class="nav-text">{% trans "Calculator" %}</span>
+    </a>
+
+    <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'nutrition:profile' %}" title="{% trans 'Profile' %}">
+      <svg class="nav-icon" aria-hidden="true"><use href="#icon-profile"></use></svg>
+      <span class="nav-text">{% trans "Profile" %}</span>
+    </a>
+  </div>
+
+  <div class="nav-right">
+    <form action="{% url 'set_language' %}" method="post" class="language-card" id="langFormProfile" title="{% trans 'Change language' %}">
+      {% csrf_token %}
+      <select name="language" class="nav-lang-select" onchange="this.form.submit();" aria-label="{% trans 'Language' %}">
+        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
+        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
+        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
+      </select>
+      <input type="hidden" name="next" value="{{ request.path }}">
+    </form>
+  </div>
+</nav>
 
 <h1>{% trans "User profile" %}</h1>
 
-<p>{% trans "User" %}: {% if user.is_authenticated %}{{ user.username }} — <a href="{% url 'logout' %}?next={% url 'nutrition:home' %}">{% trans "Logout" %}</a>{% endif %}</p>
-
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">{% trans "Save profile" %}</button>
-</form>
-
-{% if recommendation %}
-<hr>
-<h2>{% trans "Calculation results" %}</h2>
-<p>BMR: {{ recommendation.bmr }} kcal</p>
-<p>TDEE: {{ recommendation.tdee }} kcal</p>
-<p>{% trans "Recommended calories" %}: {{ recommendation.recommended_kcal }} kcal</p>
-<p>{% trans "Approx macro distribution" %}:</p>
-<ul>
-    <li>{% trans "Protein" %}: {{ recommendation.protein_g }} g</li>
-    <li>{% trans "Fat" %}: {{ recommendation.fat_g }} g</li>
-    <li>{% trans "Carbs" %}: {{ recommendation.carbs_g }} g</li>
-</ul>
+{% if user.is_authenticated %}
+    <div class="card" style="text-align: center; margin-bottom: 2rem;">
+        <p style="font-size: 1.1rem;">{% trans "User" %}: <strong style="color: var(--primary-color);">{{ user.username }}</strong></p>
+        <p style="color: #666; font-size: 0.9rem;">{{ user.email }}</p>
+    </div>
 {% endif %}
 
-<p><a href="{% url 'nutrition:home' %}">{% trans "Back to home" %}</a></p>
+<!-- форма профиля -->
+<div class="card">
+    <h2>{% trans "Edit Profile" %}</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+            {% for field in form %}
+                <div>
+                    {{ field.label_tag }}
+                    {% if field.field.widget.input_type == 'select' %}
+                        {{ field }}
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+                    {% if field.errors %}
+                        <div class="error">
+                            {{ field.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+        <button type="submit" style="margin-top: 1.5rem; width: 100%;">{% trans "Save profile" %}</button>
+    </form>
+</div>
+
+<hr>
+
+<!-- результаты расчёта -->
+{% if recommendation %}
+<div class="card">
+    <h2>{% trans "Calculation results" %}</h2>
+    
+    <!-- основные метрики -->
+    <div class="summary" style="margin-bottom: 2rem;">
+        <div class="summary-card">
+            <div class="label">BMR</div>
+            <div class="value">{{ recommendation.bmr }}</div>
+            <div class="label">kcal/day</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">TDEE</div>
+            <div class="value">{{ recommendation.tdee }}</div>
+            <div class="label">kcal/day</div>
+        </div>
+        <div class="summary-card" style="background: linear-gradient(135deg, #FF9800, #F44336);">
+            <div class="label">{% trans "Recommended" %}</div>
+            <div class="value">{{ recommendation.recommended_kcal }}</div>
+            <div class="label">kcal/day</div>
+        </div>
+    </div>
+
+    <!-- макронутриенты -->
+    <div style="background: #f9f9f9; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+        <h3 style="margin-top: 0; color: var(--primary-color);">{% trans "Approx macro distribution" %}</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #4CAF50;">
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{% trans "Protein" %}</div>
+                <div style="font-size: 1.6rem; font-weight: 700; color: #4CAF50;">{{ recommendation.protein_g }}</div>
+                <div style="font-size: 0.85rem; color: #999;">g/day</div>
+            </div>
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #2196F3;">
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{% trans "Fat" %}</div>
+                <div style="font-size: 1.6rem; font-weight: 700; color: #2196F3;">{{ recommendation.fat_g }}</div>
+                <div style="font-size: 0.85rem; color: #999;">g/day</div>
+            </div>
+            <div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #FF9800;">
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">{% trans "Carbs" %}</div>
+                <div style="font-size: 1.6rem; font-weight: 700; color: #FF9800;">{{ recommendation.carbs_g }}</div>
+                <div style="font-size: 0.85rem; color: #999;">g/day</div>
+            </div>
+        </div>
+    </div>
+
+    <p style="color: #666; font-size: 0.9rem; margin-top: 1rem;">
+        💡 {% trans "These recommendations are calculated based on your personal profile data and selected goal." %}
+    </p>
+</div>
+{% else %}
+<div style="background: #e3f2fd; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #2196F3; margin-top: 2rem;">
+    <p style="margin: 0; color: #1565c0;">
+        ℹ️ {% trans "Fill in your profile information above to see personalized calorie and macro recommendations." %}
+    </p>
+</div>
+{% endif %}
+
+<hr>
+
+<div style="text-align: center; padding: 2rem;">
+    <a href="{% url 'nutrition:home' %}" style="display: inline-block; padding: 0.75rem 2rem; background: var(--primary-color); color: white; border-radius: 4px; text-decoration: none; font-weight: 500; transition: all 300ms ease;" onmouseover="this.style.background='var(--accent-color)'; this.style.transform='translateY(-2px)';" onmouseout="this.style.background='var(--primary-color)'; this.style.transform='translateY(0)';">
+        ← {% trans "Back to home" %}
+    </a>
+</div>
+
+</div><!-- #root -->
+
 </body>
 </html>
