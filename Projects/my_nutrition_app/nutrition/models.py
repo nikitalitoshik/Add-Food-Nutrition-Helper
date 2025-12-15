@@ -3,43 +3,6 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.conf import settings
 
-class FoodProduct(models.Model):
-    name = models.CharField(max_length=200)
-    calories = models.FloatField()
-    protein = models.FloatField()
-    fat = models.FloatField()
-    carbs = models.FloatField()
-
-    def __str__(self):
-        return self.name
-
-
-class MealEntry(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    product = models.ForeignKey(FoodProduct, on_delete=models.CASCADE)
-    amount_grams = models.FloatField()  # сколько грамм съел
-    date = models.DateField(auto_now_add=True)
-
-    @property
-    def calories_total(self):
-        return self.product.calories * self.amount_grams / 100
-
-    @property
-    def protein_total(self):
-        return self.product.protein * self.amount_grams / 100
-
-    @property
-    def fat_total(self):
-        return self.product.fat * self.amount_grams / 100
-
-    @property
-    def carbs_total(self):
-        return self.product.carbs * self.amount_grams / 100
-
-    def __str__(self):
-        return f"{self.product.name} ({self.amount_grams} g)"
-
-
 class Product(models.Model):
     name = models.CharField(max_length=200)
     calories_per_100g = models.FloatField(default=0)  # kcal per 100 g
@@ -52,9 +15,12 @@ class Product(models.Model):
 
 class FoodEntry(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    # привязка к пользователю — позволяет хранить записи отдельно для каждого аккаунта
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE)
     amount = models.FloatField(help_text="grams")
     initial_amount = models.FloatField(default=0, help_text="grams - initial amount when created")
-    created_at = models.DateField(default=timezone.now)
+    # switch to DateTimeField to keep timestamps consistent with Entry.created_at
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def calories(self):
         return self.amount * self.product.calories_per_100g / 100.0
@@ -67,6 +33,9 @@ class FoodEntry(models.Model):
 
     def carbs(self):
         return self.amount * self.product.carbs_per_100g / 100.0
+
+    def __str__(self):
+        return f"{self.product.name} — {self.amount}g"
 
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -89,3 +58,26 @@ class Profile(models.Model):
 
     def __str__(self):
         return f'Profile: {self.user}'
+
+class Entry(models.Model):
+    # привязка к пользователю — позволит хранить отдельно для каждого аккаунта
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='entries')
+    name = models.CharField(max_length=255)
+    amount = models.FloatField(default=100.0)  # grams
+    # per-entry stored values (what client expects to show)
+    kcal = models.FloatField(default=0.0)
+    protein = models.FloatField(default=0.0)
+    fat = models.FloatField(default=0.0)
+    carbs = models.FloatField(default=0.0)
+    # optional authoritative "per 100g" baselines (used to recompute reliably)
+    kcal_per100 = models.FloatField(default=0.0)
+    protein_per100 = models.FloatField(default=0.0)
+    fat_per100 = models.FloatField(default=0.0)
+    carbs_per100 = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.amount}g) — {self.kcal} kcal"

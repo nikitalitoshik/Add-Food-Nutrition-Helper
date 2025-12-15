@@ -8,23 +8,7 @@
 </head>
 <body>
 <div id="root">
-  <nav>
-    <!-- ...existing nav structure... -->
-    <div class="nav-left">
-      <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a>
-      <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a>
-      <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a>
-      <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
-      <a href="{% url 'nutrition:products' %}">{% trans "Products" %}</a>
-    </div>
-    <div class="nav-right">
-      {% if user.is_authenticated %}
-        <a href="{% url 'logout' %}">{% trans "Logout" %}</a>
-      {% else %}
-        <a href="{% url 'login' %}">{% trans "Login" %}</a>
-      {% endif %}
-    </div>
-  </nav>
+  {% include 'nutrition/partials/nav.html' %}
 
   <h1>{% trans "Products" %}</h1>
 

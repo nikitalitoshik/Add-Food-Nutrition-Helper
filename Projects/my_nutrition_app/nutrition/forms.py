@@ -1,11 +1,16 @@
 from django import forms
-from .models import Product, Profile
+from .models import Product, Profile, FoodEntry
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
-class FoodEntryForm(forms.Form):
-    product = forms.ModelChoiceField(queryset=Product.objects.all())
-    amount = forms.FloatField(min_value=0.1, label='Количество (грамм)')
+class FoodEntryForm(forms.ModelForm):
+    class Meta:
+        model = FoodEntry
+        fields = ['product', 'amount']
+        labels = {'amount': 'Количество (грамм)'}
+        widgets = {
+            'amount': forms.NumberInput(attrs={'step': '0.1', 'min': '0.1'}),
+        }
 
 class ProfileForm(forms.ModelForm):
     class Meta:

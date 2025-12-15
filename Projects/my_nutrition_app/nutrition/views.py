@@ -1,18 +1,18 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth import authenticate, login
 from django.contrib import messages
-from .models import Product, FoodEntry, Profile
-from .forms import FoodEntryForm, ProfileForm, SignUpForm, ProductForm
+from .models import Product, FoodEntry, Profile, Entry
+from .forms import FoodEntryForm, ProfileForm, ProductForm, SignUpForm
 import json
 import requests
-from django.http import JsonResponse, HttpResponseBadRequest
+import logging
+from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.apps import apps
-from django.shortcuts import get_object_or_404
-from django.contrib.auth.forms import UserCreationForm
 from django.utils.translation import gettext as _
+import datetime as dt
+
+logger = logging.getLogger(__name__)
 
 def _compute_totals(entries):
     totals = {'calories':0.0,'protein':0.0,'fat':0.0,'carbs':0.0}
@@ -57,22 +57,110 @@ def _compute_recommendation(profile):
         'carbs_g': carbs_g
     }
 
+def _per_g_from_entry(ce, field_name):
+    """
+    Return per-gram baseline for field_name on an Entry instance.
+    field_name: 'kcal'|'protein'|'fat'|'carbs'
+    Priority:
+      1) use ce.<field_name>_per100 if > 0
+      2) else if ce.amount > 0, use ce.<field_name> / ce.amount (per-entry baseline)
+      3) else 0
+    """
+    try:
+        per100_attr = getattr(ce, f"{field_name}_per100", None)
+        if per100_attr and float(per100_attr) > 0:
+            return float(per100_attr) / 100.0
+        val = float(getattr(ce, field_name) or 0.0)
+        amt = float(getattr(ce, 'amount') or 0.0)
+        if amt > 0 and val:
+            return val / amt
+    except Exception:
+        pass
+    return 0.0
+
 def home(request):
     if request.method == 'POST':
         form = FoodEntryForm(request.POST)
         if form.is_valid():
-            FoodEntry.objects.create(
-                product=form.cleaned_data['product'],
-                amount=form.cleaned_data['amount']
-            )
+            fe_kwargs = {
+                'product': form.cleaned_data['product'],
+                'amount': form.cleaned_data['amount'],
+                'initial_amount': form.cleaned_data['amount']
+            }
+            if request.user.is_authenticated:
+                fe_kwargs['user'] = request.user
+            FoodEntry.objects.create(**fe_kwargs)
             return redirect('nutrition:home')
     else:
         form = FoodEntryForm()
 
     products = Product.objects.all()
     today = timezone.now().date()
-    entries = FoodEntry.objects.filter(created_at=today)
-    totals = _compute_totals(entries)
+
+    # build datetime range for "today"
+    start_dt = timezone.make_aware(dt.datetime.combine(today, dt.time.min))
+    end_dt = timezone.make_aware(dt.datetime.combine(today, dt.time.max))
+
+    # fetch FoodEntry rows and custom Entry rows for the current user (or public ones if anonymous)
+    if request.user.is_authenticated:
+        qs_food = FoodEntry.objects.filter(created_at__gte=start_dt, created_at__lte=end_dt, user=request.user)
+        qs_entry = Entry.objects.filter(user=request.user, created_at__gte=start_dt, created_at__lte=end_dt)
+    else:
+        qs_food = FoodEntry.objects.filter(created_at__gte=start_dt, created_at__lte=end_dt, user__isnull=True)
+        qs_entry = Entry.objects.none()
+
+    # build unified list and compute totals across both sources
+    combined_entries = []
+    totals = {'calories': 0.0, 'protein': 0.0, 'fat': 0.0, 'carbs': 0.0}
+
+    for fe in qs_food:
+        kcal = fe.calories() if callable(getattr(fe, 'calories', None)) else 0.0
+        p = fe.protein() if callable(getattr(fe, 'protein', None)) else 0.0
+        f = fe.fat() if callable(getattr(fe, 'fat', None)) else 0.0
+        c = fe.carbs() if callable(getattr(fe, 'carbs', None)) else 0.0
+        totals['calories'] += kcal
+        totals['protein'] += p
+        totals['fat'] += f
+        totals['carbs'] += c
+        combined_entries.append({
+            'pk': fe.pk,
+            'id': fe.pk,
+            'name': fe.product.name,
+            'amount': fe.amount,
+            'initial_amount': fe.initial_amount,
+            'kcal': round(kcal, 2),
+            'protein': round(p, 2),
+            'fat': round(f, 2),
+            'carbs': round(c, 2),
+            'origin': 'food'
+        })
+
+    for ce in qs_entry:
+        kcal = float(getattr(ce, 'kcal', 0.0) or 0.0)
+        p = float(getattr(ce, 'protein', 0.0) or 0.0)
+        f = float(getattr(ce, 'fat', 0.0) or 0.0)
+        c = float(getattr(ce, 'carbs', 0.0) or 0.0)
+        totals['calories'] += kcal
+        totals['protein'] += p
+        totals['fat'] += f
+        totals['carbs'] += c
+        combined_entries.append({
+            'pk': ce.pk,
+            'id': ce.pk,
+            'name': ce.name,
+            'amount': ce.amount,
+            'initial_amount': getattr(ce, 'initial_amount', ce.amount),
+            'kcal': round(kcal, 2),
+            'protein': round(p, 2),
+            'fat': round(f, 2),
+            'carbs': round(c, 2),
+            'origin': 'entry'
+        })
+
+    # round totals for display (same shape as before)
+    for k in totals:
+        totals[k] = round(totals[k], 2)
+    entries = combined_entries
 
     recommendation = None
     # use user's Profile when authenticated
@@ -141,11 +229,15 @@ def add_meal(request):
             product = Product.objects.get(pk=product_id)
             amount_val = float(amount)
             if amount_val > 0:
-                FoodEntry.objects.create(
-                    product=product, 
-                    amount=amount_val,
-                    initial_amount=amount_val  # <-- добавить
-                )
+                # сохраняем автора записи, если пользователь аутентифицирован
+                fe_kwargs = {
+                    'product': product,
+                    'amount': amount_val,
+                    'initial_amount': amount_val
+                }
+                if request.user.is_authenticated:
+                    fe_kwargs['user'] = request.user
+                FoodEntry.objects.create(**fe_kwargs)
         except Exception:
             pass
     return redirect('nutrition:home')
@@ -202,15 +294,38 @@ def progress(request):
     """
     today = timezone.now().date()
     start = today - timezone.timedelta(days=13)  # include today -> 14 days
-    qs = FoodEntry.objects.filter(created_at__range=(start, today))
+
+    # build datetime range for DB query (start 00:00 of start, end 23:59:59.999999 of today)
+    start_dt = timezone.make_aware(dt.datetime.combine(start, dt.time.min))
+    end_dt = timezone.make_aware(dt.datetime.combine(today, dt.time.max))
+
+    if request.user.is_authenticated:
+        qs_food = FoodEntry.objects.filter(user=request.user, created_at__gte=start_dt, created_at__lte=end_dt)
+        qs_entry = Entry.objects.filter(user=request.user, created_at__gte=start_dt, created_at__lte=end_dt)
+    else:
+        qs_food = FoodEntry.objects.filter(created_at__gte=start_dt, created_at__lte=end_dt, user__isnull=True)
+        qs_entry = Entry.objects.none()
+
     # initialize zeroed days
     daily = {}
     for i in range(14):
         d = (start + timezone.timedelta(days=i))
         daily[d.strftime('%Y-%m-%d')] = 0.0
-    for e in qs:
-        key = e.created_at.strftime('%Y-%m-%d')
+
+    # accumulate FoodEntry calories (method) and Entry.kcal (field)
+    for e in qs_food:
+        try:
+            key = timezone.localtime(e.created_at).strftime('%Y-%m-%d')
+        except Exception:
+            key = getattr(e, 'created_at').strftime('%Y-%m-%d')
         daily[key] = daily.get(key, 0.0) + (e.calories() if callable(getattr(e, 'calories', None)) else 0.0)
+
+    for e in qs_entry:
+        try:
+            key = timezone.localtime(e.created_at).strftime('%Y-%m-%d')
+        except Exception:
+            key = getattr(e, 'created_at').strftime('%Y-%m-%d')
+        daily[key] = daily.get(key, 0.0) + (getattr(e, 'kcal', 0.0) or 0.0)
     dates = list(daily.keys())
     calories = [round(daily[d], 2) for d in dates]
     return render(request, 'nutrition/progress.html', {
@@ -220,17 +335,17 @@ def progress(request):
 
 def signup(request):
     """
-    Простая регистрация: использует UserCreationForm,
-    после удачного сохранения перенаправляет на страницу логина.
+    Регистрация: использует SignUpForm (валидация email uniqueness).
+    При успешной регистрации — перенаправляет на страницу логина.
     """
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = SignUpForm(request.POST)
         if form.is_valid():
             form.save()
             messages.success(request, _("Account created. You can now log in."))
             return redirect('nutrition:login')
     else:
-        form = UserCreationForm()
+        form = SignUpForm()
     return render(request, 'registration/signup.html', {'form': form})
 
 def _is_staff(user):
@@ -298,168 +413,251 @@ def api_product_search(request):
 
 
 @require_POST
+@login_required
 def api_add_entry(request):
-    """
-    API endpoint: add entry.
-    Safe: does not include model objects/methods in JsonResponse.
-    Tries to find Product and Entry models dynamically via apps.get_model.
-    """
-    import json, traceback
+	"""
+	Принимает JSON payload от клиента (см. client code).
+	Поддерживает разные имена полей: kcal, kcal_per100, kcal_per_entry, protein_per100 и т.д.
+	Возвращает { success: True, id: <entry_id> } или { success: False, error: ... }.
+	"""
+	try:
+		payload = json.loads(request.body.decode('utf-8') or '{}')
+	except Exception:
+		return JsonResponse({'success': False, 'error': 'invalid_json'}, status=400)
 
-    # parse JSON body (fall back to POST)
-    try:
-        if request.content_type and 'application/json' in request.content_type:
-            payload = json.loads(request.body.decode('utf-8') or '{}')
-        else:
-            payload = request.POST.dict()
-    except Exception as exc:
-        print('api_add_entry: failed to parse payload:', exc)
-        return JsonResponse({'success': False, 'error': 'Invalid JSON payload'}, status=400)
+	# basic fields
+	name = (payload.get('name') or '').strip()[:255]
+	try:
+		amount = float(payload.get('amount') or payload.get('mass') or 100)
+	except Exception:
+		amount = 100.0
 
-    # find models dynamically
-    try:
-        Product = apps.get_model('nutrition', 'Product')
-    except LookupError:
-        Product = None
-    try:
-        # try common candidate names for entry model
-        Entry = None
-        for cand in ('Entry','FoodEntry','Consumption','ConsumedEntry','FoodLog','Record','NutritionEntry','UserEntry','MealEntry'):
-            try:
-                Entry = apps.get_model('nutrition', cand)
-                if Entry:
-                    break
-            except LookupError:
-                Entry = None
-    except Exception:
-        Entry = None
+	# resolve per-entry kcal: prefer explicit kcal, then kcal_per_entry, then compute from per100
+	def to_float(v, default=0.0):
+		try:
+			return float(v)
+		except Exception:
+			return default
 
-    if Product is None:
-        return JsonResponse({'success': False, 'error': 'Server error: Product model not found'}, status=500)
-    if Entry is None:
-        return JsonResponse({'success': False, 'error': 'Server error: Entry model not found'}, status=500)
+	# prefer direct kcal/per-entry, else compute from per-100; also capture per100 baselines
+	k100 = to_float(payload.get('kcal_per100') or payload.get('kcal_100') or payload.get('kcal100') or payload.get('kcalPer100') or 0.0)
+	kcal = to_float(payload.get('kcal')) or to_float(payload.get('kcal_per_entry')) or (k100 * amount / 100.0) or 0.0
 
-    # extract fields
-    prod_id = payload.get('id') or payload.get('product_id')
-    name = payload.get('name')
-    try:
-        amount = float(str(payload.get('amount') or 0).replace(',', '.'))
-    except Exception:
-        amount = 0.0
+	# also capture protein/fat/carbs per100 if provided
+	protein_per100 = to_float(payload.get('protein_per100') or payload.get('protein100') or 0.0)
+	fat_per100 = to_float(payload.get('fat_per100') or payload.get('fat100') or 0.0)
+	carbs_per100 = to_float(payload.get('carbs_per100') or payload.get('carbs100') or 0.0)
 
-    if not prod_id and not name:
-        return JsonResponse({'success': False, 'error': 'Missing product id or name'}, status=400)
+	protein = to_float(payload.get('protein')) or (protein_per100 * amount / 100.0) or 0.0
+	fat = to_float(payload.get('fat')) or (fat_per100 * amount / 100.0) or 0.0
+	carbs = to_float(payload.get('carbs')) or (carbs_per100 * amount / 100.0) or 0.0
 
-    # get or create product
-    try:
-        if prod_id:
-            product = get_object_or_404(Product, pk=int(prod_id))
-        else:
-            # attempt to create product when name provided — only set defaults for known fields
-            defaults = {}
-            # try to read possible numeric fields from payload
-            def to_float(v):
-                try: return float(str(v).replace(',', '.'))
-                except Exception: return 0.0
-            possible = {
-                'kcal_per_100g': to_float(payload.get('kcal') or payload.get('kcal100')),
-                'protein_per_100g': to_float(payload.get('protein') or payload.get('protein100')),
-                'fat_per_100g': to_float(payload.get('fat') or payload.get('fat100')),
-                'carbs_per_100g': to_float(payload.get('carbs') or payload.get('carbs100')),
-            }
-            model_field_names = {f.name for f in Product._meta.get_fields()}
-            for k,v in possible.items():
-                if k in model_field_names:
-                    defaults[k] = v
-            product, created = Product.objects.get_or_create(name=name, defaults=defaults or None)
-    except Exception as exc:
-        print('api_add_entry: product lookup/create failed:', exc)
-        traceback.print_exc()
-        return JsonResponse({'success': False, 'error': 'Product lookup/create failed'}, status=500)
+	entry = Entry.objects.create(
+		user=request.user,
+		name=name or 'Custom',
+		amount=amount,
+		kcal=round(kcal, 3),
+		protein=round(protein, 3),
+		fat=round(fat, 3),
+		carbs=round(carbs, 3),
+		kcal_per100=round(k100, 3),
+		protein_per100=round(protein_per100, 3),
+		fat_per100=round(fat_per100, 3),
+		carbs_per100=round(carbs_per100, 3),
+	)
 
-    # compute nutrition values using available product fields
-    try:
-        def get_attr_num(obj, *names):
-            for n in names:
-                if hasattr(obj, n):
-                    try:
-                        return float(getattr(obj, n) or 0)
-                    except Exception:
-                        continue
-            return 0.0
-
-        kcal100 = get_attr_num(product, 'kcal_per_100g', 'kcal', 'energy_kcal', 'calories')
-        protein100 = get_attr_num(product, 'protein_per_100g', 'protein')
-        fat100 = get_attr_num(product, 'fat_per_100g', 'fat')
-        carbs100 = get_attr_num(product, 'carbs_per_100g', 'carbs')
-
-        factor = (amount / 100.0) if amount > 0 else 0.0
-        calories = round(kcal100 * factor, 2)
-        protein = round(protein100 * factor, 2)
-        fat = round(fat100 * factor, 2)
-        carbs = round(carbs100 * factor, 2)
-
-        # prepare creation kwargs only for fields that actually exist on Entry model
-        entry_fields = {f.name for f in Entry._meta.get_fields()}
-        create_kwargs = {}
-        if 'product' in entry_fields:
-            create_kwargs['product'] = product
-        if 'amount' in entry_fields:
-            create_kwargs['amount'] = amount
-        if 'calories' in entry_fields:
-            create_kwargs['calories'] = calories
-        if 'protein' in entry_fields:
-            create_kwargs['protein'] = protein
-        if 'fat' in entry_fields:
-            create_kwargs['fat'] = fat
-        if 'carbs' in entry_fields:
-            create_kwargs['carbs'] = carbs
-        # attach user if model has user FK
-        if 'user' in entry_fields:
-            create_kwargs['user'] = request.user if request.user.is_authenticated else None
-
-        entry = Entry.objects.create(**create_kwargs)
-    except Exception as exc:
-        print('api_add_entry: failed to create entry:', exc)
-        traceback.print_exc()
-        return JsonResponse({'success': False, 'error': 'Failed to create entry'}, status=500)
-
-    # respond with only simple serializable values
-    try:
-        return JsonResponse({'success': True, 'entry_id': int(getattr(entry, 'pk', 0))})
-    except Exception as exc:
-        print('api_add_entry: failed to build JsonResponse:', exc)
-        traceback.print_exc()
-        return JsonResponse({'success': True, 'entry_id': 0})
+	return JsonResponse({'success': True, 'id': entry.id})
 
 @require_POST
 def edit_entry(request, entry_id):
     """
-    Update amount for existing FoodEntry (POST: amount).
-    Redirects back to home.
+    Update amount for existing FoodEntry or custom Entry (both POST 'amount').
+    Supports JSON (AJAX) requests: accepts {"amount": <number>} and returns JSON.
+    For normal form POST uses messages + redirect.
     """
-    entry = get_object_or_404(FoodEntry, pk=entry_id)
-    try:
-        amount = float(request.POST.get('amount', '0'))
-        if amount <= 0:
-            messages.error(request, "Amount must be greater than 0.")
+    # helper to detect JSON request
+    content_type = request.META.get('CONTENT_TYPE', '') or request.headers.get('Content-Type', '')
+    is_json = content_type.startswith('application/json')
+
+    # extract amount from JSON body if present, otherwise from request.POST
+    def _get_amount_from_request():
+        if is_json:
+            try:
+                payload = json.loads(request.body.decode('utf-8') or '{}')
+                return float(payload.get('amount', 0))
+            except Exception as ex:
+                logger.debug("Invalid JSON payload for edit_entry: %s", ex)
+                return None
         else:
-            entry.amount = amount
-            entry.save()
-            messages.success(request, "Entry updated.")
-    except (ValueError, TypeError):
-        messages.error(request, "Invalid amount.")
-    return redirect('nutrition:home')
+            try:
+                return float(request.POST.get('amount', '0'))
+            except Exception:
+                return None
+
+    # try FoodEntry first
+    try:
+        fe = FoodEntry.objects.get(pk=entry_id)
+        amount = _get_amount_from_request()
+        if amount is None:
+            if is_json:
+                return JsonResponse({'success': False, 'error': 'invalid_amount'}, status=400)
+            messages.error(request, "Invalid amount.")
+            return redirect('nutrition:home')
+
+        if amount <= 0:
+            if is_json:
+                return JsonResponse({'success': False, 'error': 'amount_must_be_positive'}, status=400)
+            messages.error(request, "Amount must be greater than 0.")
+            return redirect('nutrition:home')
+
+        fe.amount = amount
+        # persist new amount first
+        fe.save()
+        # compute authoritative per-100 baselines from Product (if available)
+        prod = getattr(fe, 'product', None)
+        kcal_per100 = 0.0
+        protein_per100 = 0.0
+        fat_per100 = 0.0
+        carbs_per100 = 0.0
+        if prod is not None:
+            try:
+                kcal_per100 = float(getattr(prod, 'calories_per_100g', 0) or 0.0)
+            except Exception:
+                kcal_per100 = 0.0
+            try:
+                protein_per100 = float(getattr(prod, 'protein_per_100g', 0) or 0.0)
+            except Exception:
+                protein_per100 = 0.0
+            try:
+                fat_per100 = float(getattr(prod, 'fat_per_100g', 0) or 0.0)
+            except Exception:
+                fat_per100 = 0.0
+            try:
+                carbs_per100 = float(getattr(prod, 'carbs_per_100g', 0) or 0.0)
+            except Exception:
+                carbs_per100 = 0.0
+
+        # If kcal_per100 missing but macros present, compute kcal_per100 from macros
+        if not kcal_per100 and (protein_per100 or fat_per100 or carbs_per100):
+            kcal_per100 = (protein_per100 * 4.0) + (fat_per100 * 9.0) + (carbs_per100 * 4.0)
+
+        # Now compute authoritative per-entry values
+        amount_val = float(fe.amount or 0.0)
+        kcal = round(amount_val * (kcal_per100 or 0.0) / 100.0, 3)
+        protein = round(amount_val * (protein_per100 or 0.0) / 100.0, 3)
+        fat = round(amount_val * (fat_per100 or 0.0) / 100.0, 3)
+        carbs = round(amount_val * (carbs_per100 or 0.0) / 100.0, 3)
+
+        logger.info("FoodEntry %s updated by user %s: amount=%s (kcal=%s, p=%s f=%s c=%s)", fe.pk, getattr(request.user, 'username', 'anonymous'), amount, kcal, protein, fat, carbs)
+
+        if is_json:
+            return JsonResponse({
+                'success': True,
+                'id': fe.pk,
+                'amount': float(fe.amount),
+                'kcal': kcal,
+                'protein': protein,
+                'fat': fat,
+                'carbs': carbs,
+            })
+        messages.success(request, "Entry updated.")
+        return redirect('nutrition:home')
+
+    except FoodEntry.DoesNotExist:
+        # try custom Entry
+        try:
+            ce = Entry.objects.get(pk=entry_id)
+        except Entry.DoesNotExist:
+            if is_json:
+                return JsonResponse({'success': False, 'error': 'not_found'}, status=404)
+            messages.error(request, "Entry not found.")
+            return redirect('nutrition:home')
+
+        # require owner for custom entries
+        if not request.user.is_authenticated or ce.user_id != request.user.id:
+            logger.warning("Unauthorized edit attempt on Entry %s by user %s", entry_id, getattr(request.user, 'username', 'anonymous'))
+            if is_json:
+                return JsonResponse({'success': False, 'error': 'forbidden'}, status=403)
+            messages.error(request, "You are not allowed to edit this entry.")
+            return redirect('nutrition:home')
+
+        new_amount = _get_amount_from_request()
+        if new_amount is None or new_amount <= 0:
+            if is_json:
+                return JsonResponse({'success': False, 'error': 'invalid_amount'}, status=400)
+            messages.error(request, "Invalid amount.")
+            return redirect('nutrition:home')
+
+        # Recompute per-entry values пропорционально изменению количества
+        # Use helper to derive reliable per-gram baselines
+        kcal_per_g = _per_g_from_entry(ce, 'kcal')
+        protein_per_g = _per_g_from_entry(ce, 'protein')
+        fat_per_g = _per_g_from_entry(ce, 'fat')
+        carbs_per_g = _per_g_from_entry(ce, 'carbs')
+
+        ce.amount = new_amount
+        ce.kcal = round(kcal_per_g * new_amount, 3)
+        ce.protein = round(protein_per_g * new_amount, 3)
+        ce.fat = round(fat_per_g * new_amount, 3)
+        ce.carbs = round(carbs_per_g * new_amount, 3)
+        # keep per100 fields unchanged (they remain authoritative baselines)
+        ce.save()
+        logger.info("Entry %s updated by user %s: amount=%s", ce.pk, request.user.username, new_amount)
+
+        if is_json:
+            return JsonResponse({
+                'success': True,
+                'id': ce.pk,
+                'amount': float(ce.amount),
+                'kcal': float(ce.kcal),
+                'protein': float(ce.protein),
+                'fat': float(ce.fat),
+                'carbs': float(ce.carbs),
+            })
+        messages.success(request, "Entry updated.")
+        return redirect('nutrition:home')
 
 @require_POST
 def delete_entry(request, entry_id):
     """
-    Delete FoodEntry by id (POST).
+    Delete a FoodEntry or a custom Entry.
+    Supports JSON (AJAX) requests: returns JSON on success/error.
     """
-    entry = get_object_or_404(FoodEntry, pk=entry_id)
-    entry.delete()
-    messages.success(request, "Entry deleted.")
-    return redirect('nutrition:home')
+    content_type = request.META.get('CONTENT_TYPE', '') or request.headers.get('Content-Type', '')
+    is_json = content_type.startswith('application/json')
+
+    # first try FoodEntry
+    try:
+        fe = FoodEntry.objects.get(pk=entry_id)
+        fe.delete()
+        logger.info("FoodEntry %s deleted by user %s", entry_id, getattr(request.user, 'username', 'anonymous'))
+        if is_json:
+            return JsonResponse({'success': True})
+        messages.success(request, "Entry deleted.")
+        return redirect('nutrition:home')
+    except FoodEntry.DoesNotExist:
+        # try custom Entry
+        try:
+            ce = Entry.objects.get(pk=entry_id)
+        except Entry.DoesNotExist:
+            if is_json:
+                return JsonResponse({'success': False, 'error': 'not_found'}, status=404)
+            messages.error(request, "Entry not found.")
+            return redirect('nutrition:home')
+
+        if not request.user.is_authenticated or ce.user_id != request.user.id:
+            logger.warning("Unauthorized delete attempt on Entry %s by user %s", entry_id, getattr(request.user, 'username', 'anonymous'))
+            if is_json:
+                return JsonResponse({'success': False, 'error': 'forbidden'}, status=403)
+            messages.error(request, "You are not allowed to delete this entry.")
+            return redirect('nutrition:home')
+
+        ce.delete()
+        logger.info("Entry %s deleted by owner %s", entry_id, request.user.username)
+        if is_json:
+            return JsonResponse({'success': True})
+        messages.success(request, "Entry deleted.")
+        return redirect('nutrition:home')
 
 def api_product_lookup(request):
     """

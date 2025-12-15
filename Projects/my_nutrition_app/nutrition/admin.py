@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, FoodEntry, Profile
+from .models import Product, FoodEntry, Profile, Entry
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -9,7 +9,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(FoodEntry)
 class FoodEntryAdmin(admin.ModelAdmin):
-    list_display = ('product', 'amount', 'created_at', 'calories')
+    list_display = ('user', 'product', 'amount', 'created_at', 'calories')
     list_filter = ('created_at',)
     search_fields = ('product__name',)
     readonly_fields = ('created_at',)
@@ -19,3 +19,9 @@ class ProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'age', 'weight', 'height', 'goal')
     search_fields = ('user__username',)
     list_filter = ('goal', 'sex')
+
+@admin.register(Entry)
+class EntryAdmin(admin.ModelAdmin):
+    list_display = ('user', 'name', 'amount', 'kcal', 'created_at')
+    list_filter = ('user', 'created_at')
+    search_fields = ('name',)
