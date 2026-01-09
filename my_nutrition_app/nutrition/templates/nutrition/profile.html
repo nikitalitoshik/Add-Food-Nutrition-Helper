@@ -9,30 +9,7 @@
 <body>
 <div id="root">
 
-<!-- обновлённая навигация с селектором языка -->
-<nav>
-  <div class="nav-left">
-    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
-    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a> |
-    <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a>
-  </div>
-  <div class="nav-right">
-    {% if user.is_authenticated %}
-      <a href="{% url 'logout' %}?next={% url 'nutrition:home' %}">{% trans "Logout" %}</a>
-    {% else %}
-      <a href="{% url 'login' %}">{% trans "Login" %}</a>
-    {% endif %}
-    <form action="{% url 'set_language' %}" method="post" class="language-form nav-lang" id="langFormProfile" title="{% trans 'Change language' %}">
-      {% csrf_token %}
-      <select name="language" class="nav-lang-select" onchange="this.form.submit();">
-        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
-        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
-        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
-      </select>
-      <input type="hidden" name="next" value="{{ request.path }}">
-    </form>
-  </div>
-</nav>
+{% include 'nutrition/partials/nav.html' %}
 
 <h1>{% trans "User profile" %}</h1>
 
@@ -43,7 +20,7 @@
     </div>
 {% endif %}
 
-<!-- форма профиля -->
+
 <div class="card">
     <h2>{% trans "Edit Profile" %}</h2>
     <form method="post">
@@ -71,12 +48,12 @@
 
 <hr>
 
-<!-- результаты расчёта -->
+
 {% if recommendation %}
 <div class="card">
     <h2>{% trans "Calculation results" %}</h2>
     
-    <!-- основные метрики -->
+    
     <div class="summary" style="margin-bottom: 2rem;">
         <div class="summary-card">
             <div class="label">BMR</div>
@@ -95,7 +72,7 @@
         </div>
     </div>
 
-    <!-- макронутриенты -->
+    <!-- makronutrients -->
     <div style="background: #f9f9f9; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
         <h3 style="margin-top: 0; color: var(--primary-color);">{% trans "Approx macro distribution" %}</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
@@ -137,7 +114,7 @@
     </a>
 </div>
 
-</div><!-- #root -->
+</div>
 
 </body>
 </html>

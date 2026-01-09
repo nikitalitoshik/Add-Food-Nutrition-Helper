@@ -10,89 +10,22 @@
 <body>
 <div id="root">
 
-<nav>
-  <div class="nav-left">
-    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
-    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a> |
-    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
-  </div>
-  <div class="nav-right">
-    <form action="{% url 'set_language' %}" method="post" class="language-form nav-lang" id="langFormProg" title="{% trans 'Change language' %}">
-      {% csrf_token %}
-      <select name="language" class="nav-lang-select" onchange="this.form.submit();">
-        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
-        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
-        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
-      </select>
-      <input type="hidden" name="next" value="{{ request.path }}">
-    </form>
-  </div>
-</nav>
+{# use shared nav partial (replaced duplicated svg + nav) #}
+{% include 'nutrition/partials/nav.html' %}
 
 <h1>{% trans "Progress & Goals" %}</h1>
 
 <div class="card">
     <h2>{% trans "Calories per day (last 14 days)" %}</h2>
-    <canvas id="calChart" width="800" height="300"
+    <!-- fixed CSS size to avoid continuous resize loop -->
+        <canvas id="calChart" width="800" height="300" style="width:800px; height:300px; max-width:100%;"
             data-dates="{{ dates_json|escapejs }}"
-            data-calories="{{ calories_json|escapejs }}"></canvas>
+            data-calories="{{ calories_json|escapejs }}"
+            data-rec="{{ recommendation.recommended_kcal|default:0 }}"></canvas>
 </div>
 
-<script>
-(function() {
-    const canvas = document.getElementById('calChart');
-    let dates = [];
-    let calories = [];
-    try {
-        dates = JSON.parse(canvas.dataset.dates || '[]');
-    } catch (e) {
-        dates = [];
-        console.error('Failed to parse dates JSON', e);
-    }
-    try {
-        calories = JSON.parse(canvas.dataset.calories || '[]');
-    } catch (e) {
-        calories = [];
-        console.error('Failed to parse calories JSON', e);
-    }
-
-    const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: dates,
-            datasets: [{
-                label: '{% trans "Calories per day" %}',
-                data: calories,
-                backgroundColor: 'rgba(76, 175, 80, 0.6)',
-                borderColor: 'rgba(76, 175, 80, 1)',
-                borderWidth: 2,
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: { 
-                y: { 
-                    beginAtZero: true,
-                    ticks: { color: '#666' },
-                    grid: { color: '#eee' }
-                },
-                x: {
-                    ticks: { color: '#666' },
-                    grid: { color: '#eee' }
-                }
-            },
-            plugins: {
-                legend: { 
-                    labels: { color: '#333', font: { size: 12 } }
-                }
-            }
-        }
-    });
-})();
-</script>
+<!-- moved chart logic to external file -->
+<script src="{% static 'nutrition/js/progress.js' %}"></script>
 
 <div class="card" style="margin-top: 2rem; text-align: center;">
     <p style="color: #666;">📊 {% trans "Track your daily calorie intake to monitor your progress towards your goals." %}</p>

@@ -9,25 +9,7 @@
 <body>
 <div id="root">
 
-<nav>
-  <div class="nav-left">
-    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
-    <a href="{% url 'nutrition:progress' %}">{% trans "Progress" %}</a> |
-    <a href="{% url 'nutrition:profile' %}">{% trans "Profile" %}</a>
-  </div>
-  <div class="nav-right">
-    <a href="{% url 'nutrition:calculator' %}">{% trans "Calculator" %}</a>
-    <form action="{% url 'set_language' %}" method="post" class="language-form nav-lang" id="langFormCalc" title="{% trans 'Change language' %}">
-      {% csrf_token %}
-      <select name="language" class="nav-lang-select" onchange="this.form.submit();">
-        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
-        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
-        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
-      </select>
-      <input type="hidden" name="next" value="{{ request.path }}">
-    </form>
-  </div>
-</nav>
+{% include 'nutrition/partials/nav.html' %}
 
 <h1>{% trans "Calorie & Macro Calculator" %}</h1>
 
@@ -39,7 +21,7 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
             <div>
                 <label>{% trans "Age" %}</label>
-                <input type="number" name="age" required>
+                <input type="number" name="age" required min="1">
             </div>
             <div>
                 <label>{% trans "Sex" %}</label>
@@ -50,11 +32,11 @@
             </div>
             <div>
                 <label>{% trans "Weight (kg)" %}</label>
-                <input type="number" step="0.1" name="weight" required>
+                <input type="number" step="0.1" name="weight" required min="1">
             </div>
             <div>
                 <label>{% trans "Height (cm)" %}</label>
-                <input type="number" step="0.1" name="height" required>
+                <input type="number" step="0.1" name="height" required min="1">
             </div>
             <div>
                 <label>{% trans "Activity level" %}</label>
@@ -125,6 +107,6 @@
 </div>
 {% endif %}
 
-</div><!-- #root -->
+</div>
 </body>
 </html>

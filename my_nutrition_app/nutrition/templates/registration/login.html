@@ -9,23 +9,8 @@
 <body>
 <div id="root">
 
-<nav>
-  <div class="nav-left">
-    <a href="{% url 'nutrition:home' %}">{% trans "Home" %}</a> |
-    <a href="{% url 'nutrition:signup' %}">{% trans "Sign Up" %}</a>
-  </div>
-  <div class="nav-right">
-    <form action="{% url 'set_language' %}" method="post" class="language-form nav-lang" id="langFormLogin" title="{% trans 'Change language' %}">
-      {% csrf_token %}
-      <select name="language" class="nav-lang-select" onchange="this.form.submit();">
-        <option value="en"{% if LANGUAGE_CODE|slice:":2" == "en" %} selected{% endif %}>EN</option>
-        <option value="lv"{% if LANGUAGE_CODE|slice:":2" == "lv" %} selected{% endif %}>LV</option>
-        <option value="ru"{% if LANGUAGE_CODE|slice:":2" == "ru" %} selected{% endif %}>RU</option>
-      </select>
-      <input type="hidden" name="next" value="{{ request.path }}">
-    </form>
-  </div>
-</nav>
+{% comment %} replaced duplicated nav with single include to avoid dead/duplicated code {% endcomment %}
+{% include 'nutrition/partials/nav.html' %}
 
 <h1>{% trans "Login" %}</h1>
 
@@ -62,6 +47,6 @@
     </p>
 </div>
 
-</div><!-- #root -->
+</div>
 </body>
 </html>

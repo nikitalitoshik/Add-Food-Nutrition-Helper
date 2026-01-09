@@ -7,7 +7,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: my_nutrition_app\n"
-"POT-Creation-Date: 2025-11-27 00:00+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-18 15:16+0200\n"
 "PO-Revision-Date: 2025-11-27 00:00+0000\n"
 "Last-Translator: Auto <auto@example.com>\n"
 "Language-Team: Latvian\n"
@@ -16,86 +17,476 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "Add Food — Nutrition Helper"
-msgstr "Pievienot ēdienu — Uztura palīgs"
+#: .\nutrition\models.py:47 .\nutrition\templates\nutrition\calculator.html:29
+msgid "Male"
+msgstr "Vīrietis"
 
-msgid "Language"
-msgstr "Valoda"
+#: .\nutrition\models.py:48 .\nutrition\templates\nutrition\calculator.html:30
+msgid "Female"
+msgstr "Sieviete"
 
-msgid "Change"
-msgstr "Mainīt"
+#: .\nutrition\models.py:52
+msgid "kg"
+msgstr "kg"
 
-msgid "Add food"
-msgstr "Pievienot ēdienu"
+#: .\nutrition\models.py:53
+msgid "cm"
+msgstr "cm"
 
-msgid "Product"
-msgstr "Produkts"
+#: .\nutrition\models.py:57
+msgid "Sedentary (low activity)"
+msgstr "Mazkustīgs (zema aktivitāte)"
 
-msgid "Amount (grams)"
-msgstr "Daudzums (gramos)"
+#: .\nutrition\models.py:58
+msgid "Light activity"
+msgstr "Viegla aktivitāte"
 
-msgid "Add"
-msgstr "Pievienot"
+#: .\nutrition\models.py:59
+msgid "Moderate activity"
+msgstr "Vidēja aktivitāte"
 
-msgid "Configure profile (weight, height, goal)"
-msgstr "Iestatīt profilu (svars, augums, mērķis)"
+#: .\nutrition\models.py:60
+msgid "High activity"
+msgstr "Augsta aktivitāte"
 
-msgid "Today (total)"
-msgstr "Šodien (summa)"
+#: .\nutrition\models.py:61 .\nutrition\templates\nutrition\calculator.html:48
+msgid "Very active"
+msgstr "Ļoti aktīvs"
 
-msgid "Calories"
-msgstr "Kalorijas"
+#: .\nutrition\models.py:68 .\nutrition\templates\nutrition\calculator.html:54
+msgid "Lose weight"
+msgstr "Samazināt svaru"
 
-msgid "Protein"
-msgstr "Olbaltumvielas"
+#: .\nutrition\models.py:69 .\nutrition\templates\nutrition\calculator.html:55
+msgid "Maintain weight"
+msgstr "Uzturēt svaru"
 
-msgid "Fat"
-msgstr "Tauki"
+#: .\nutrition\models.py:70 .\nutrition\templates\nutrition\calculator.html:56
+msgid "Gain weight"
+msgstr "Palielināt svaru"
 
-msgid "Carbs"
-msgstr "Ogļhidrāti"
+#: .\nutrition\models.py:76
+#, python-format
+msgid "Profile: %(user)s"
+msgstr "Profils: %(user)s"
 
-msgid "No entries for today."
-msgstr "Šodien nav ierakstu."
-
-msgid "Calorie recommendations (by profile)"
-msgstr "Ieteikumi par kalorijām (pēc profila)"
-
-msgid "Recommended calories adjusted for goal"
-msgstr "Ieteicamās kalorijas, ņemot vērā mērķi"
-
-msgid "Approx macro plan (grams)"
-msgstr "Aptuvenais makro sadalījums (gramos)"
-
-msgid "Entries today"
-msgstr "Šodienas ieraksti"
-
-msgid "No entries"
-msgstr "Nav ierakstu"
-
-msgid "Profile — Nutrition Helper"
+#: .\nutrition\templates\nutrition\calculator.html:6
+msgid "Calculator — Nutrition Helper"
 msgstr "Profils — Uztura palīgs"
 
-msgid "User profile"
-msgstr "Lietotāja profils"
+#: .\nutrition\templates\nutrition\calculator.html:14
+msgid "Calorie & Macro Calculator"
+msgstr "Kaloriju un makro aprēķins"
 
-msgid "User"
-msgstr "Lietotājs"
+#: .\nutrition\templates\nutrition\calculator.html:17
+msgid ""
+"Enter your personal data to get personalized calorie and macro "
+"recommendations."
+msgstr ""
+"Ievadiet savus personiskos datus, lai saņemtu personalizētas kaloriju un "
+"makro rekomendācijas."
 
-msgid "Logout"
-msgstr "Iziet"
+#: .\nutrition\templates\nutrition\calculator.html:23
+msgid "Age"
+msgstr "Vecums"
 
-msgid "Save profile"
-msgstr "Saglabāt profilu"
+#: .\nutrition\templates\nutrition\calculator.html:27
+msgid "Sex"
+msgstr "Dzimums"
 
-msgid "Calculation results"
+#: .\nutrition\templates\nutrition\calculator.html:34
+msgid "Weight (kg)"
+msgstr "Svars (kg)"
+
+#: .\nutrition\templates\nutrition\calculator.html:38
+msgid "Height (cm)"
+msgstr "Augums (cm)"
+
+#: .\nutrition\templates\nutrition\calculator.html:42
+msgid "Activity level"
+msgstr "Aktivitātes līmenis"
+
+#: .\nutrition\templates\nutrition\calculator.html:44
+msgid "Sedentary"
+msgstr "Mazkustīgs"
+
+#: .\nutrition\templates\nutrition\calculator.html:45
+msgid "Light"
+msgstr "Viegla aktivitāte"
+
+#: .\nutrition\templates\nutrition\calculator.html:46
+msgid "Moderate"
+msgstr "Vidēja aktivitāte"
+
+#: .\nutrition\templates\nutrition\calculator.html:47
+msgid "Active"
+msgstr "Aktīvs"
+
+#: .\nutrition\templates\nutrition\calculator.html:52
+msgid "Goal"
+msgstr "Mērķis"
+
+#: .\nutrition\templates\nutrition\calculator.html:60
+#, fuzzy
+#| msgid "Calculation results"
+msgid "Calculate"
 msgstr "Aprēķina rezultāti"
 
-msgid "Recommended calories"
+#: .\nutrition\templates\nutrition\calculator.html:67
+msgid "Results"
+msgstr "Rezultāti"
+
+#: .\nutrition\templates\nutrition\calculator.html:81
+#: .\nutrition\templates\nutrition\profile.html:69
+msgid "Recommended"
 msgstr "Ieteicamās kalorijas"
 
+#: .\nutrition\templates\nutrition\calculator.html:88
+#: .\nutrition\templates\nutrition\profile.html:77
 msgid "Approx macro distribution"
 msgstr "Paredzētais makro sadalījums"
 
+#: .\nutrition\templates\nutrition\calculator.html:91
+#: .\nutrition\templates\nutrition\home.html:91
+#: .\nutrition\templates\nutrition\profile.html:80
+msgid "Protein"
+msgstr "Olbaltumvielas"
+
+#: .\nutrition\templates\nutrition\calculator.html:96
+#: .\nutrition\templates\nutrition\home.html:99
+#: .\nutrition\templates\nutrition\profile.html:85
+msgid "Fat"
+msgstr "Tauki"
+
+#: .\nutrition\templates\nutrition\calculator.html:101
+#: .\nutrition\templates\nutrition\home.html:107
+#: .\nutrition\templates\nutrition\profile.html:90
+msgid "Carbs"
+msgstr "Ogļhidrāti"
+
+#: .\nutrition\templates\nutrition\home.html:7
+msgid "Add Food — Nutrition Helper"
+msgstr "Pievienot ēdienu — Uztura palīgs"
+
+#: .\nutrition\templates\nutrition\home.html:33
+msgid "Add food"
+msgstr "Pievienot ēdienu"
+
+#: .\nutrition\templates\nutrition\home.html:34
+msgid "Product name"
+msgstr "Produkts"
+
+#: .\nutrition\templates\nutrition\home.html:35
+msgid "e.g. Homemade granola"
+msgstr "piem., mājās gatavota granola"
+
+#: .\nutrition\templates\nutrition\home.html:39
+msgid "Calories (per 100g)"
+msgstr "Kalorijas (uz 100 g)"
+
+#: .\nutrition\templates\nutrition\home.html:43
+msgid "Protein (g/100g)"
+msgstr "Olbaltumvielas"
+
+#: .\nutrition\templates\nutrition\home.html:47
+msgid "Fat (g/100g)"
+msgstr "Tauki (g/100 g)"
+
+#: .\nutrition\templates\nutrition\home.html:51
+msgid "Carbs (g/100g)"
+msgstr "Ogļhidrāti (g/100 g)"
+
+#: .\nutrition\templates\nutrition\home.html:56
+msgid "Amount (grams)"
+msgstr "Daudzums (gramos)"
+
+#: .\nutrition\templates\nutrition\home.html:66
+msgid "Add custom product"
+msgstr "Pievienot pielāgotu produktu"
+
+#: .\nutrition\templates\nutrition\home.html:67
+msgid "Clear"
+msgstr "Notīrīt"
+
+#: .\nutrition\templates\nutrition\home.html:78
+msgid "Eaten today"
+msgstr "Šodienas ieraksti"
+
+#: .\nutrition\templates\nutrition\home.html:81
+msgid "Today totals"
+msgstr "Šodien (summa)"
+
+#: .\nutrition\templates\nutrition\home.html:83
+msgid "Calories"
+msgstr "Kalorijas"
+
+#: .\nutrition\templates\nutrition\home.html:119
+#: .\nutrition\templates\nutrition\partials\nav.html:21
+#: .\nutrition\templates\nutrition\partials\nav.html:23
+msgid "Progress"
+msgstr "Progres"
+
+#: .\nutrition\templates\nutrition\home.html:134
+msgid "Entries today"
+msgstr "Šodienas ieraksti"
+
+#: .\nutrition\templates\nutrition\home.html:170
+msgid "Edit entry"
+msgstr "Rediģēt ierakstu"
+
+#: .\nutrition\templates\nutrition\home.html:170
+msgid "Edit"
+msgstr "Rediģēt"
+
+#: .\nutrition\templates\nutrition\home.html:175
+msgid "Delete entry"
+msgstr "Dzēst ierakstu"
+
+#: .\nutrition\templates\nutrition\home.html:175
+msgid "Delete"
+msgstr "Dzēst"
+
+#: .\nutrition\templates\nutrition\home.html:189
+msgid "Amount (g)"
+msgstr "Daudzums (gramos)"
+
+#: .\nutrition\templates\nutrition\home.html:191
+msgid "Save"
+msgstr "Saglabāt"
+
+#: .\nutrition\templates\nutrition\home.html:192
+msgid "Cancel"
+msgstr "Atcelt"
+
+#: .\nutrition\templates\nutrition\home.html:203
+msgid "No entries"
+msgstr "Nav ierakstu"
+
+#: .\nutrition\templates\nutrition\home.html:210
+msgid "Search product (external database)"
+msgstr "Meklēt produktu (ārējā datubāzē)"
+
+#: .\nutrition\templates\nutrition\home.html:216
+msgid "Search products"
+msgstr "Meklēt produktus"
+
+#: .\nutrition\templates\nutrition\home.html:218
+msgid "Search products (e.g. banana, milk)"
+msgstr "Meklēt produktus (piem., banāns, piens)"
+
+#: .\nutrition\templates\nutrition\home.html:219
+msgid "Search"
+msgstr "Meklēt"
+
+#: .\nutrition\templates\nutrition\home.html:226
+msgid "Barcode"
+msgstr "Svītrkods"
+
+#: .\nutrition\templates\nutrition\home.html:228
+msgid "Enter UPC / Barcode (e.g. 012345678905)"
+msgstr "Ievadiet UPC/svītrkodu (piem., 012345678905)"
+
+#: .\nutrition\templates\nutrition\home.html:229
+msgid "Lookup by barcode"
+msgstr "Meklēt pēc svītrkoda"
+
+#: .\nutrition\templates\nutrition\home.html:230
+msgid "Or search by name using the field above."
+msgstr "Vai meklējiet pēc nosaukuma, izmantojot laukumu augstāk."
+
+#: .\nutrition\templates\nutrition\partials\nav.html:16
+#: .\nutrition\templates\nutrition\partials\nav.html:18
+msgid "Home"
+msgstr "Sākums"
+
+#: .\nutrition\templates\nutrition\partials\nav.html:26
+#: .\nutrition\templates\nutrition\partials\nav.html:28
+#, fuzzy
+#| msgid "Calculation results"
+msgid "Calculator"
+msgstr "Aprēķina rezultāti"
+
+#: .\nutrition\templates\nutrition\partials\nav.html:32
+#: .\nutrition\templates\nutrition\partials\nav.html:34
+#, fuzzy
+#| msgid "Edit Profile"
+msgid "Profile"
+msgstr "Rediģēt profilu"
+
+#: .\nutrition\templates\nutrition\partials\nav.html:40
+msgid "Change language"
+msgstr "Mainīt valodu"
+
+#: .\nutrition\templates\nutrition\partials\nav.html:42
+msgid "Language"
+msgstr "Valoda"
+
+#: .\nutrition\templates\nutrition\partials\nav.html:50
+msgid "Account"
+msgstr "Konts"
+
+#: .\nutrition\templates\nutrition\partials\nav.html:53
+#: .\nutrition\templates\nutrition\partials\nav.html:56
+msgid "Logout"
+msgstr "Iziet"
+
+#: .\nutrition\templates\nutrition\partials\nav.html:61
+msgid "Login / Sign up"
+msgstr "Pieteikties / Reģistrēties"
+
+#: .\nutrition\templates\nutrition\profile.html:6
+msgid "Profile — Nutrition Helper"
+msgstr "Profils — Uztura palīgs"
+
+#: .\nutrition\templates\nutrition\profile.html:14
+msgid "User profile"
+msgstr "Lietotāja profils"
+
+#: .\nutrition\templates\nutrition\profile.html:18
+msgid "User"
+msgstr "Lietotājs"
+
+#: .\nutrition\templates\nutrition\profile.html:25
+msgid "Edit Profile"
+msgstr "Rediģēt profilu"
+
+#: .\nutrition\templates\nutrition\profile.html:45
+msgid "Save profile"
+msgstr "Saglabāt profilu"
+
+#: .\nutrition\templates\nutrition\profile.html:54
+msgid "Calculation results"
+msgstr "Aprēķina rezultāti"
+
+#: .\nutrition\templates\nutrition\profile.html:98
+msgid ""
+"These recommendations are calculated based on your personal profile data and "
+"selected goal."
+msgstr ""
+"Šīs rekomendācijas tiek aprēķinātas, pamatojoties uz jūsu profila datiem un "
+"izvēlēto mērķi."
+
+#: .\nutrition\templates\nutrition\profile.html:104
+msgid ""
+"Fill in your profile information above to see personalized calorie and macro "
+"recommendations."
+msgstr ""
+"Aizpildiet profila informāciju augstāk, lai redzētu personalizētas kaloriju "
+"un makro rekomendācijas."
+
+#: .\nutrition\templates\nutrition\profile.html:113
 msgid "Back to home"
-msgstr "Atpakaļ uz galveno"
+msgstr "Atpakaļ uz sākumlapu"
+
+#: .\nutrition\templates\nutrition\progress.html:6
+msgid "Progress — Nutrition Helper"
+msgstr "Profils — Uztura palīgs"
+
+#: .\nutrition\templates\nutrition\progress.html:16
+msgid "Progress & Goals"
+msgstr "Progres un mērķi"
+
+#: .\nutrition\templates\nutrition\progress.html:19
+msgid "Calories per day (last 14 days)"
+msgstr "Kalorijas dienā (pēdējās 14 dienas)"
+
+#: .\nutrition\templates\nutrition\progress.html:31
+msgid ""
+"Track your daily calorie intake to monitor your progress towards your goals."
+msgstr ""
+"Izsekojiet savu dienas kaloriju patēriņu, lai kontrolētu progresu mērķu "
+"sasniegšanā."
+
+#: .\nutrition\templates\registration\login.html:6
+msgid "Login — Nutrition Helper"
+msgstr "Profils — Uztura palīgs"
+
+#: .\nutrition\templates\registration\login.html:16
+#: .\nutrition\templates\registration\login.html:40
+msgid "Login"
+msgstr "Pieteikties"
+
+#: .\nutrition\templates\registration\login.html:31
+msgid "Username"
+msgstr "Lietotājs"
+
+#: .\nutrition\templates\registration\login.html:36
+msgid "Password"
+msgstr "Parole"
+
+#: .\nutrition\templates\registration\login.html:46
+msgid "Don't have an account?"
+msgstr "Nav konta?"
+
+#: .\nutrition\templates\registration\login.html:47
+msgid "Sign up here"
+msgstr "Reģistrējieties šeit"
+
+#: .\nutrition\templates\registration\signup.html:6
+msgid "Sign Up — Nutrition Helper"
+msgstr "Profils — Uztura palīgs"
+
+#: .\nutrition\templates\registration\signup.html:14
+msgid "Sign Up"
+msgstr "Reģistrēties"
+
+#: .\nutrition\templates\registration\signup.html:28
+msgid "Create account"
+msgstr "Izveidot kontu"
+
+#: .\nutrition\templates\registration\signup.html:34
+msgid "Already have an account?"
+msgstr "Jau ir konts?"
+
+#: .\nutrition\templates\registration\signup.html:35
+msgid "Log in"
+msgstr "Pieteikties"
+
+#: .\nutrition\views.py:408
+msgid "Account created. You can now log in."
+msgstr "Konts izveidots. Tagad varat pieteikties."
+
+#~ msgid "Products — Nutrition Helper"
+#~ msgstr "Profils — Uztura palīgs"
+
+#~ msgid "Products"
+#~ msgstr "Produkts"
+
+#~ msgid "Add new product"
+#~ msgstr "Pievienot jaunu produktu"
+
+#~ msgid "Save product"
+#~ msgstr "Saglabāt profilu"
+
+#~ msgid "Existing products"
+#~ msgstr "Esošie produkti"
+
+#~ msgid "Name"
+#~ msgstr "Nosaukums"
+
+#~ msgid "kcal/100g"
+#~ msgstr "kcal/100 g"
+
+#~ msgid "No products yet."
+#~ msgstr "Vēl nav produktu."
+
+#~ msgid "Change"
+#~ msgstr "Mainīt"
+
+#~ msgid "Add"
+#~ msgstr "Pievienot"
+
+#~ msgid "Configure profile (weight, height, goal)"
+#~ msgstr "Iestatīt profilu (svars, augums, mērķis)"
+
+#~ msgid "No entries for today."
+#~ msgstr "Šodien nav ierakstu."
+
+#~ msgid "Calorie recommendations (by profile)"
+#~ msgstr "Ieteikumi par kalorijām (pēc profila)"
+
+#~ msgid "Recommended calories adjusted for goal"
+#~ msgstr "Ieteicamās kalorijas, ņemot vērā mērķi"
+
+#~ msgid "Approx macro plan (grams)"
+#~ msgstr "Aptuvenais makro sadalījums (gramos)"
